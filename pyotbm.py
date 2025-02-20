@@ -47,7 +47,11 @@ class BufferManager:
     def encode_otbm(self, otbm: dict) -> bytes:
         from struct import pack
         
-        buffer = b'\xfe' + pack('<b', otbm['type'])
+        if otbm['type'] == 0:
+            buffer = b'\x00\x00\x00\x00\xfe' + pack('<b', otbm['type'])
+        else:
+            buffer = b'\xfe' + pack('<b', otbm['type'])
+        
         tbuffer = b''
         children = b''
 
@@ -90,6 +94,14 @@ class BufferManager:
             i += 1
 
         return buffer
+    
+    @staticmethod
+    def create_otbm(buffer:bytes, filename: str) -> None:
+        with open(filename, 'wb') as file:
+            try:
+                file.write(buffer)
+            except Exception as e:
+                print(e)
 
 class node:
     def __init__(self, iINIT: None, parent = None) -> None:
@@ -206,10 +218,12 @@ def parse_buffer(buffer: bytes) -> node:
                 active_node = active_node.parent #node closed, moving up to parent
 
         i += 1
-
+    
     return active_node
 
 buffer = BufferManager.load_buffer(otbm='D:/Documents/Tibia/RME/maps/void.otbm')
 data = parse_buffer(buffer=buffer)
 a = data._to_dict()
 b = BufferManager.encode_otbm(a)
+
+BufferManager.create_otbm(b, filename='D:/Documents/Python/OTBMBuilder/test.otbm')
