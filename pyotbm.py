@@ -1,4 +1,4 @@
-import headers as h
+import packages.headers as h
 
 class BufferManager:
     @classmethod
@@ -48,10 +48,11 @@ class BufferManager:
         from struct import pack
         
         if otbm['type'] == 0:
-            buffer = b'\x00\x00\x00\x00\xfe' + pack('<b', otbm['type'])
+            buffer = b'\x00\x00\x00\x00\xfe'
         else:
-            buffer = b'\xfe' + pack('<b', otbm['type'])
+            buffer = b'\xfe'
         
+        buffer = buffer +  + pack('<b', otbm['type'])
         tbuffer = b''
         children = b''
 
@@ -75,7 +76,6 @@ class BufferManager:
             for node in otbm['children']:
                 children = self.encode_otbm(node)
                 tbuffer = tbuffer + children
-                
         except:
             pass           
         
@@ -124,7 +124,6 @@ class node:
             i += 1
            
     def match_node(self, buffer: bytes) -> None:
-        import struct
 
         bm = BufferManager
         # Removes ESC bytes from the node content
@@ -142,6 +141,8 @@ class node:
             case h.OTBM_MAP_DATA:
                 self.type = 2
                 i = self.walk_desc(buffer=buffer)
+                self.description = []
+                #self.match_attributes(buffer[1:])
                 self.description = buffer[1:i] # Just copying the description as is because I don't care about this.
 
             case h.OTBM_TILE_AREA:
@@ -175,8 +176,36 @@ class node:
 
             i += 1
 
+    def match_attribures(self, buffer: bytes) -> None:
+        i = 0
+        
+        while True:
+            curr = buffer[i].to_bytes()
+
+            match curr:
+                case h.OTBM_ATTR_DESCRIPTION:
+                    length = buffer[i+1]
+                    i += 2
+                    self.description.append(buffer[i:i+length].decode('ascii'))
+                case h.OTBM_ATTR_EXT_HOUSE_FILE:
+                    length = buffer[i+1]
+                    i += 2
+                    self.house_file = buffer[i:i+length].decode('ascii')
+                case h.OTBM_ATTR_EXT_SPAWN_FILE:
+                    length = buffer[i+1]
+                    i += 2
+                    self.house_file = buffer[i:i+length].decode('ascii')
+                case h.NODE_INIT:
+                    return buffer[i-1:]
+
+
     def _to_dict(self) -> dict:
-        remove_attr = ['iINIT', 'iEND', 'children', 'parent']
+        remove_attr = [
+            'iINIT',
+            'iEND',
+            'children',
+            'parent'
+            ]
         
         dict_node = self.__dict__
 
@@ -201,29 +230,32 @@ def parse_buffer(buffer: bytes) -> node:
 
         if curr == h.NODE_INIT and prev != h.NODE_ESC:
             if active_node is None:
-                #initializes node if there is none
+                # Initializes active node if there is none
                 active_node = node(iINIT=i)
                 active_node.match_node(buffer=buffer[i:])
 
             else:
-                #if data exists, a NODE INIT indicates a children node
+                # If there is an active node, a NODE INIT indicates a children
                 child = node(iINIT=i, parent=active_node)
                 child.match_node(buffer=buffer[i:])
-                active_node.children.append(child) #adds child node to children list
-                active_node = child #child node becomes the active node
+                active_node.children.append(child)
+                active_node = child # Child becomes the active node
 
         elif curr == h.NODE_END and prev != h.NODE_ESC:
             active_node.iEND = i
             if active_node.parent is not None:
-                active_node = active_node.parent #node closed, moving up to parent
+                active_node = active_node.parent # Activating parent node.
 
         i += 1
     
     return active_node
 
-buffer = BufferManager.load_buffer(otbm='D:/Documents/Tibia/RME/maps/void.otbm')
+buffer = BufferManager.load_buffer(otbm='void.otbm')
 data = parse_buffer(buffer=buffer)
 a = data._to_dict()
 b = BufferManager.encode_otbm(a)
 
 BufferManager.create_otbm(b, filename='D:/Documents/Python/OTBMBuilder/test.otbm')
+
+buffer.find(b'\r')
+buffer[113:113+14].decode('ascii')
