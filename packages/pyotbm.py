@@ -198,7 +198,6 @@ class node:
                 case h.NODE_INIT:
                     return buffer[i-1:]
 
-
     def _to_dict(self) -> dict:
         remove_attr = [
             'iINIT',
@@ -249,13 +248,3 @@ def parse_buffer(buffer: bytes) -> node:
         i += 1
     
     return active_node
-
-buffer = BufferManager.load_buffer(otbm='void.otbm')
-data = parse_buffer(buffer=buffer)
-a = data._to_dict()
-b = BufferManager.encode_otbm(a)
-
-BufferManager.create_otbm(b, filename='D:/Documents/Python/OTBMBuilder/test.otbm')
-
-buffer.find(b'\r')
-buffer[113:113+14].decode('ascii')
