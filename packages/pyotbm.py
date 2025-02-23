@@ -122,26 +122,33 @@ class ioOTBM:
 class node:
     def __init__(self):
         self.children = []
-        self.parent = None
     
     @classmethod
-    def node_from_buffer(cls, buffer: bytes) -> node:
+    def node_from_buffer(cls, buffer: bytes, parent=None) -> object:
+        io = ioOTBM
         
-        match buffer[0]:
+        buffer = io.remove_escape_byte(buffer=buffer[1:]) # Starts one byte after h.NODE_INIT
+
+        header = buffer[0].to_bytes()
+        
+        match header:
             case h.OTBM_MAP_HEADER:
                 return map_header(buffer=buffer)
             
             case h.OTBM_MAP_DATA:
-                return map_data(buffer=buffer)
+                return map_data(buffer=buffer, parent=parent)
             
             case h.OTBM_TILE_AREA:
-                return tile_area(buffer=buffer)
+                return tile_area(buffer=buffer, parent=parent)
             
             case h.OTBM_TILE:
-                return tile(buffer=buffer)
+                return tile(buffer=buffer, parent=parent)
             
-            case _:
-                return cls(buffer=buffer)
+            case h.OTBM_TOWNS:
+                return towns(parent=parent)
+            
+            case h.OTBM_WAYPOINTS:
+                return waypoints(parent=parent)
             
     def match_node(self, buffer: bytes) -> None:
 
@@ -237,25 +244,23 @@ class node:
         return dict_node
 
 class map_header(node):
-    def __init__(self, width: int=None, height: int=None, buffer: bytes=None):
+    def __init__(self, buffer: bytes=None, **kwargs):
         super().__init__()
         self.type = 0
+
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif width and height:
-            self.from_data(width=width, height=height)
-
-    def from_data(self, width: int, height: int, version=2, items_maj_version=3, items_min_version=57):
-        self.version = version
-        self.width = width
-        self.height = height
-        self.items_maj_version = items_maj_version
-        self.items_min_version = items_min_version
+        elif kwargs.get('width') and kwargs.get('height'):
+            self.version = 2
+            self.width = kwargs.get('width')
+            self.height = kwargs.get('height')
+            self.items_maj_version = 3
+            self.items_min_version = 57
+        else:
+            raise('map_header init failed.')
 
     def from_buffer(self, buffer: bytes):
-        io = ioOTBM
-
-        buffer = io.remove_escape_byte(buffer=buffer[1:])
+        io = ioOTBM    
 
         self.version = io.read_Int4LE(buffer[1:5])
         self.width = io.read_Int2LE(buffer[5:7])
@@ -264,7 +269,7 @@ class map_header(node):
         self.items_min_version = io.read_Int4LE(buffer[13:17])
 
 class map_data(node):
-    def __init__(self, parent: node, buffer: bytes=None):
+    def __init__(self, parent: map_header, buffer: bytes=None, **kwargs):
         super().__init__()
         self.type = 2
         self.parent = parent
@@ -273,54 +278,118 @@ class map_data(node):
         if buffer:
             self.from_buffer(buffer=buffer)
         else:
-            self.from_data()
+            self.description.append("Saved with Remere's Map Editor 3.7.0")
 
     def from_buffer(self, buffer: bytes):
-        io = ioOTBM
+        i = 0
+        
+        while True:
+            curr = buffer[i].to_bytes()
 
-        buffer = io.remove_escape_byte(buffer=buffer)
-
-    def from_data(self):
-        self.description.append("Saved with Remere's Map Editor 3.7.0")
+            match curr:
+                case h.OTBM_ATTR_DESCRIPTION:
+                    length = buffer[i+1]
+                    i += 2
+                    self.description.append(buffer[i:i+length].decode('ascii'))
+                case h.OTBM_ATTR_EXT_HOUSE_FILE:
+                    length = buffer[i+1]
+                    i += 2
+                    self.house_file = buffer[i:i+length].decode('ascii')
+                case h.OTBM_ATTR_EXT_SPAWN_FILE:
+                    length = buffer[i+1]
+                    i += 2
+                    self.house_file = buffer[i:i+length].decode('ascii')
+                case h.NODE_INIT:
+                    return buffer[i-1:]
+            
+            i += 1
 
 class tile_area(node):
-    def __init__(self, parent: node, buffer: bytes=None, x: int=None, y: int=None, z: int=None):
+    def __init__(self, parent: map_data, buffer: bytes=None, **kwargs):
         super().__init__()
-        self.parent = parent
         self.type = 4
+        self.parent = parent
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif x and y and z:
-            self.from_data(x=x, y=y, z=z)
+        elif kwargs.get('x') and kwargs.get('y') and kwargs.get('z'):
+            self.x = kwargs.get('x')
+            self.y = kwargs.get('y')
+            self.z = kwargs.get('z')
 
     def from_buffer(self, buffer):
-        pass
+        io = ioOTBM
 
-    def from_data(self, x, y, z):
-        self.x = x
-        self.y = y
-        self.z = z
-
+        self.x = io.read_Int2LE(buffer[1:3])
+        self.y = io.read_Int2LE(buffer[3:5])
+        self.z = io.read_Int1LE(buffer[5:6])
+        
 class tile(node):
-    def __init__(self, parent: node, buffer: bytes=None, x: int=None, y: int=None, tileid: int=None):
+    def __init__(self, parent: tile_area, buffer: bytes=None, **kwargs):
         super().__init__()
-        self.parent = parent
         self.type = 5
+        self.parent = parent
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif x and y and tileid:
-            self.from_data(x=x, y=y, tileid=tileid)
+        else:
+            self.x = kwargs.get('x')
+            self.y = kwargs.get('y')
+            self.tileid = kwargs.get('tileid')
     
     def from_buffer(self, buffer):
-        pass
+        io = ioOTBM
 
-    def from_data(self, x, y, tileid):
-        self.x = x
-        self.y = y
-        self.tileid = tileid
-        
+        self.x = io.read_SignedInt1LE(buffer[1:2])
+        self.y = io.read_SignedInt1LE(buffer[2:3])
+        if buffer[3].to_bytes() == h.OTBM_ATTR_ITEM:
+            self.tileid = io.read_Int2LE(buffer[4:6])
+
+class towns(node):
+    def __init__(self, parent):
+        super().__init__()
+        self.type = 12
+        self.parent = parent
+
+class waypoints(node):
+    def __init__(self, parent):
+        super().__init__()
+        self.type = 15
+        self.parent = parent
+
+def parse_buffer2(buffer: bytes) -> node:
+    print('Reading OTBM buffer...')
+    i = 0
+    active_node = None
+
+    while i < len(buffer):
+        curr = buffer[i].to_bytes()
+        prev = buffer[i-1].to_bytes()
+
+        if curr == h.NODE_INIT and prev != h.NODE_ESC:
+            if active_node is None:
+                # Initializes active node if there is none
+                active_node = node.node_from_buffer(buffer=buffer[i:])
+                print('Root found.')
+
+            else:
+                # If there is an active node, a NODE INIT indicates a children
+                print(f'Child found at {i}')
+                child = node.node_from_buffer(buffer=buffer[i:], parent=active_node)
+                active_node.children.append(child)
+                active_node = child # Child becomes the active node
+
+        elif curr == h.NODE_END and prev != h.NODE_ESC:
+            try:
+                if active_node.parent is not None:
+                    active_node = active_node.parent # Activating parent node.
+            except:
+                pass
+
+        i += 1
+    
+    return active_node
+
 def parse_buffer(buffer: bytes) -> node:
     print('Reading OTBM buffer...')
     i = 0

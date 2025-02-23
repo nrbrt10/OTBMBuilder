@@ -1,6 +1,4 @@
 from packages import pyotbm
-from packages import headers
-
 
 test_map = pyotbm.map(width=2048, height=2048)
 map_data = pyotbm.map_data(parent=test_map)
@@ -20,4 +18,3 @@ t = test_map._to_dict()
 
 io = pyotbm.ioOTBM
 io.create_otbm(io.encode_otbm(t), 'test_map.otbm')
-
