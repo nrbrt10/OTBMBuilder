@@ -120,10 +120,29 @@ class ioOTBM:
                 print(e)
 
 class node:
-    def __init__(self, parent = None) -> None:
+    def __init__(self):
         self.children = []
-        self.parent = parent
-           
+        self.parent = None
+    
+    @classmethod
+    def node_from_buffer(cls, buffer: bytes) -> node:
+        
+        match buffer[0]:
+            case h.OTBM_MAP_HEADER:
+                return map_header(buffer=buffer)
+            
+            case h.OTBM_MAP_DATA:
+                return map_data(buffer=buffer)
+            
+            case h.OTBM_TILE_AREA:
+                return tile_area(buffer=buffer)
+            
+            case h.OTBM_TILE:
+                return tile(buffer=buffer)
+            
+            case _:
+                return cls(buffer=buffer)
+            
     def match_node(self, buffer: bytes) -> None:
 
         io = ioOTBM
@@ -144,7 +163,7 @@ class node:
                 i = self.walk_desc(buffer=buffer)
                 self.description = []
                 #self.match_attributes(buffer[1:])
-                self.description = buffer[1:i] # Just copying the description as is because I don't care about this.
+                self.description = buffer[1:i] # Just copying the description as is because I don't care about this functionality yet.
 
             case h.OTBM_TILE_AREA:
                 self.type = 4
@@ -217,34 +236,87 @@ class node:
         
         return dict_node
 
-class map(node):
-    def __init__(self, width, height, version=2, items_maj_version=3, items_min_version=57, parent=None):
-        super().__init__(parent)
+class map_header(node):
+    def __init__(self, width: int=None, height: int=None, buffer: bytes=None):
+        super().__init__()
         self.type = 0
+        if buffer:
+            self.from_buffer(buffer=buffer)
+        elif width and height:
+            self.from_data(width=width, height=height)
+
+    def from_data(self, width: int, height: int, version=2, items_maj_version=3, items_min_version=57):
         self.version = version
         self.width = width
         self.height = height
         self.items_maj_version = items_maj_version
         self.items_min_version = items_min_version
 
+    def from_buffer(self, buffer: bytes):
+        io = ioOTBM
+
+        buffer = io.remove_escape_byte(buffer=buffer[1:])
+
+        self.version = io.read_Int4LE(buffer[1:5])
+        self.width = io.read_Int2LE(buffer[5:7])
+        self.height = io.read_Int2LE(buffer[7:9])
+        self.items_maj_version = io.read_Int4LE(buffer[9:13])
+        self.items_min_version = io.read_Int4LE(buffer[13:17])
+
 class map_data(node):
-    def __init__(self, parent):
-        super().__init__(parent)
+    def __init__(self, parent: node, buffer: bytes=None):
+        super().__init__()
         self.type = 2
-        self.description = ["Saved with Remere's Map Editor 3.7.0"]
-    
+        self.parent = parent
+        self.description = []
+
+        if buffer:
+            self.from_buffer(buffer=buffer)
+        else:
+            self.from_data()
+
+    def from_buffer(self, buffer: bytes):
+        io = ioOTBM
+
+        buffer = io.remove_escape_byte(buffer=buffer)
+
+    def from_data(self):
+        self.description.append("Saved with Remere's Map Editor 3.7.0")
+
 class tile_area(node):
-    def __init__(self, parent, x, y, z):
-        super().__init__(parent)
+    def __init__(self, parent: node, buffer: bytes=None, x: int=None, y: int=None, z: int=None):
+        super().__init__()
+        self.parent = parent
         self.type = 4
+
+        if buffer:
+            self.from_buffer(buffer=buffer)
+        elif x and y and z:
+            self.from_data(x=x, y=y, z=z)
+
+    def from_buffer(self, buffer):
+        pass
+
+    def from_data(self, x, y, z):
         self.x = x
         self.y = y
         self.z = z
 
 class tile(node):
-    def __init__(self, parent, x, y, tileid):
-        super().__init__(parent)
+    def __init__(self, parent: node, buffer: bytes=None, x: int=None, y: int=None, tileid: int=None):
+        super().__init__()
+        self.parent = parent
         self.type = 5
+
+        if buffer:
+            self.from_buffer(buffer=buffer)
+        elif x and y and tileid:
+            self.from_data(x=x, y=y, tileid=tileid)
+    
+    def from_buffer(self, buffer):
+        pass
+
+    def from_data(self, x, y, tileid):
         self.x = x
         self.y = y
         self.tileid = tileid
