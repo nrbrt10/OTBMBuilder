@@ -357,7 +357,7 @@ class waypoints(node):
         self.type = 15
         self.parent = parent
 
-def parse_buffer2(buffer: bytes) -> node:
+def parse_buffer(buffer: bytes) -> node:
     print('Reading OTBM buffer...')
     i = 0
     active_node = None
@@ -390,33 +390,33 @@ def parse_buffer2(buffer: bytes) -> node:
     
     return active_node
 
-# To be removed
-def parse_buffer(buffer: bytes) -> node:
-    print('Reading OTBM buffer...')
-    i = 0
-    active_node = None
-
-    while i < len(buffer):
-        curr = buffer[i].to_bytes()
-        prev = buffer[i-1].to_bytes()
-
-        if curr == h.NODE_INIT and prev != h.NODE_ESC:
-            if active_node is None:
-                # Initializes active node if there is none
-                active_node = node()
-                active_node.match_node(buffer=buffer[i:])
-
-            else:
-                # If there is an active node, a NODE INIT indicates a children
-                child = node(parent=active_node)
-                child.match_node(buffer=buffer[i:])
-                active_node.children.append(child)
-                active_node = child # Child becomes the active node
-
-        elif curr == h.NODE_END and prev != h.NODE_ESC:
-            if active_node.parent is not None:
-                active_node = active_node.parent # Activating parent node.
-
-        i += 1
-    
-    return active_node
+# To be removed 
+#def parse_buffer(buffer: bytes) -> node:
+#    print('Reading OTBM buffer...')
+#    i = 0
+#    active_node = None
+#
+#    while i < len(buffer):
+#        curr = buffer[i].to_bytes()
+#        prev = buffer[i-1].to_bytes()
+#
+#        if curr == h.NODE_INIT and prev != h.NODE_ESC:
+#            if active_node is None:
+#                # Initializes active node if there is none
+#                active_node = node()
+#                active_node.match_node(buffer=buffer[i:])
+#
+#            else:
+#                # If there is an active node, a NODE INIT indicates a children
+#                child = node(parent=active_node)
+#                child.match_node(buffer=buffer[i:])
+#                active_node.children.append(child)
+#                active_node = child # Child becomes the active node
+#
+#        elif curr == h.NODE_END and prev != h.NODE_ESC:
+#            if active_node.parent is not None:
+#                active_node = active_node.parent # Activating parent node.
+#
+#        i += 1
+#    
+#    return active_node
