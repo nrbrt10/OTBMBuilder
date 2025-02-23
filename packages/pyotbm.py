@@ -390,6 +390,7 @@ def parse_buffer2(buffer: bytes) -> node:
     
     return active_node
 
+# To be removed
 def parse_buffer(buffer: bytes) -> node:
     print('Reading OTBM buffer...')
     i = 0

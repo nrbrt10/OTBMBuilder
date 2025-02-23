@@ -1,6 +1,6 @@
 from packages import pyotbm
 
-test_map = pyotbm.map(width=2048, height=2048)
+test_map = pyotbm.map_header(width=2048, height=2048)
 map_data = pyotbm.map_data(parent=test_map)
 test_map.children.append(map_data)
 
