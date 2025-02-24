@@ -149,83 +149,84 @@ class node:
             
             case h.OTBM_WAYPOINTS:
                 return waypoints(parent=parent)
-            
-    def match_node(self, buffer: bytes) -> None:
 
-        io = ioOTBM
-        # Removes ESC bytes from the node content
-        buffer = io.remove_escape_byte(buffer=buffer[1:])
+# Method superseded by node_from_buffer and subclass' from_buffer            
+#    def match_node(self, buffer: bytes) -> None:
+#
+#        io = ioOTBM
+#        # Removes ESC bytes from the node content
+#        buffer = io.remove_escape_byte(buffer=buffer[1:])
+#
+#        match buffer[0].to_bytes():
+#            case h.OTBM_MAP_HEADER:
+#                self.type = 0
+#                self.version = io.read_Int4LE(buffer[1:5])
+#                self.width = io.read_Int2LE(buffer[5:7])
+#                self.height = io.read_Int2LE(buffer[7:9])
+#                self.items_maj_version = io.read_Int4LE(buffer[9:13])
+#                self.items_min_version = io.read_Int4LE(buffer[13:17])
+#            
+#            case h.OTBM_MAP_DATA:
+#                self.type = 2
+#                i = self.walk_desc(buffer=buffer)
+#                self.description = []
+#                #self.match_attributes(buffer[1:])
+#                self.description = buffer[1:i] # Just copying the description as is because I don't care about this functionality yet.
+#
+#            case h.OTBM_TILE_AREA:
+#                self.type = 4
+#                self.x = io.read_Int2LE(buffer[1:3])
+#                self.y = io.read_Int2LE(buffer[3:5])
+#                self.z = io.read_Int1LE(buffer[5:6])
+#
+#            case h.OTBM_TILE:
+#                self.type = 5
+#                self.x = io.read_SignedInt1LE(buffer[1:2])
+#                self.y = io.read_SignedInt1LE(buffer[2:3])
+#                if buffer[3].to_bytes() == h.OTBM_ATTR_ITEM:
+#                    self.tileid = io.read_Int2LE(buffer[4:6])
+#
+#            case h.OTBM_TOWNS:
+#                self.type = 12
+#
+#            case h.OTBM_WAYPOINTS:
+#                self.type = 15
+#
+#        return
+#    
+#    def walk_desc(self, buffer: bytes) -> int:
+#        i = 1
+#        while True:
+#            next = buffer[i+1].to_bytes()
+#            
+#            if next == h.NODE_INIT:
+#                return i+1
+#
+#            i += 1
+#
+#    def match_attributes(self, buffer: bytes) -> None:
+#        i = 0
+#        
+#        while True:
+#            curr = buffer[i].to_bytes()
+#
+#            match curr:
+#                case h.OTBM_ATTR_DESCRIPTION:
+#                    length = buffer[i+1]
+#                    i += 2
+#                    self.description.append(buffer[i:i+length].decode('ascii'))
+#                case h.OTBM_ATTR_EXT_HOUSE_FILE:
+#                    length = buffer[i+1]
+#                    i += 2
+#                    self.house_file = buffer[i:i+length].decode('ascii')
+#                case h.OTBM_ATTR_EXT_SPAWN_FILE:
+#                    length = buffer[i+1]
+#                    i += 2
+#                    self.house_file = buffer[i:i+length].decode('ascii')
+#                case h.NODE_INIT:
+#                    return buffer[i-1:]
 
-        match buffer[0].to_bytes():
-            case h.OTBM_MAP_HEADER:
-                self.type = 0
-                self.version = io.read_Int4LE(buffer[1:5])
-                self.width = io.read_Int2LE(buffer[5:7])
-                self.height = io.read_Int2LE(buffer[7:9])
-                self.items_maj_version = io.read_Int4LE(buffer[9:13])
-                self.items_min_version = io.read_Int4LE(buffer[13:17])
-            
-            case h.OTBM_MAP_DATA:
-                self.type = 2
-                i = self.walk_desc(buffer=buffer)
-                self.description = []
-                #self.match_attributes(buffer[1:])
-                self.description = buffer[1:i] # Just copying the description as is because I don't care about this functionality yet.
-
-            case h.OTBM_TILE_AREA:
-                self.type = 4
-                self.x = io.read_Int2LE(buffer[1:3])
-                self.y = io.read_Int2LE(buffer[3:5])
-                self.z = io.read_Int1LE(buffer[5:6])
-
-            case h.OTBM_TILE:
-                self.type = 5
-                self.x = io.read_SignedInt1LE(buffer[1:2])
-                self.y = io.read_SignedInt1LE(buffer[2:3])
-                if buffer[3].to_bytes() == h.OTBM_ATTR_ITEM:
-                    self.tileid = io.read_Int2LE(buffer[4:6])
-
-            case h.OTBM_TOWNS:
-                self.type = 12
-
-            case h.OTBM_WAYPOINTS:
-                self.type = 15
-
-        return
-    
-    def walk_desc(self, buffer: bytes) -> int:
-        i = 1
-        while True:
-            next = buffer[i+1].to_bytes()
-            
-            if next == h.NODE_INIT:
-                return i+1
-
-            i += 1
-
-    def match_attributes(self, buffer: bytes) -> None:
-        i = 0
-        
-        while True:
-            curr = buffer[i].to_bytes()
-
-            match curr:
-                case h.OTBM_ATTR_DESCRIPTION:
-                    length = buffer[i+1]
-                    i += 2
-                    self.description.append(buffer[i:i+length].decode('ascii'))
-                case h.OTBM_ATTR_EXT_HOUSE_FILE:
-                    length = buffer[i+1]
-                    i += 2
-                    self.house_file = buffer[i:i+length].decode('ascii')
-                case h.OTBM_ATTR_EXT_SPAWN_FILE:
-                    length = buffer[i+1]
-                    i += 2
-                    self.house_file = buffer[i:i+length].decode('ascii')
-                case h.NODE_INIT:
-                    return buffer[i-1:]
-
-    def _to_dict(self) -> dict:
+    def to_dict(self) -> dict:
         remove_attr = [
             'children',
             'parent'
@@ -239,7 +240,7 @@ class node:
             dict_node['children'] = []
 
             for child in self.children:
-                dict_node['children'].append(child._to_dict())
+                dict_node['children'].append(child.to_dict())
         
         return dict_node
 
@@ -267,6 +268,8 @@ class map_header(node):
         self.height = io.read_Int2LE(buffer[7:9])
         self.items_maj_version = io.read_Int4LE(buffer[9:13])
         self.items_min_version = io.read_Int4LE(buffer[13:17])
+
+        return
 
 class map_data(node):
     def __init__(self, parent: map_header, buffer: bytes=None, **kwargs):
@@ -317,12 +320,14 @@ class tile_area(node):
             self.y = kwargs.get('y')
             self.z = kwargs.get('z')
 
-    def from_buffer(self, buffer):
+    def from_buffer(self, buffer: bytes):
         io = ioOTBM
 
         self.x = io.read_Int2LE(buffer[1:3])
         self.y = io.read_Int2LE(buffer[3:5])
         self.z = io.read_Int1LE(buffer[5:6])
+
+        return
         
 class tile(node):
     def __init__(self, parent: tile_area, buffer: bytes=None, **kwargs):
@@ -332,18 +337,20 @@ class tile(node):
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        else:
+        elif kwargs.get('x') and  kwargs.get('y') and  kwargs.get('tileid'):
             self.x = kwargs.get('x')
             self.y = kwargs.get('y')
             self.tileid = kwargs.get('tileid')
     
-    def from_buffer(self, buffer):
+    def from_buffer(self, buffer: bytes):
         io = ioOTBM
 
         self.x = io.read_SignedInt1LE(buffer[1:2])
         self.y = io.read_SignedInt1LE(buffer[2:3])
         if buffer[3].to_bytes() == h.OTBM_ATTR_ITEM:
             self.tileid = io.read_Int2LE(buffer[4:6])
+
+        return
 
 class towns(node):
     def __init__(self, parent):
@@ -369,8 +376,9 @@ def parse_buffer(buffer: bytes) -> node:
         if curr == h.NODE_INIT and prev != h.NODE_ESC:
             if active_node is None:
                 # Initializes active node if there is none
+                print(f'Root found at {i}.')
                 active_node = node.node_from_buffer(buffer=buffer[i:])
-                print('Root found.')
+                
 
             else:
                 # If there is an active node, a NODE INIT indicates a children
@@ -380,12 +388,8 @@ def parse_buffer(buffer: bytes) -> node:
                 active_node = child # Child becomes the active node
 
         elif curr == h.NODE_END and prev != h.NODE_ESC:
-            try:
-                if active_node.parent is not None:
-                    active_node = active_node.parent # Activating parent node.
-            except:
-                pass
-
+            if type(active_node) is not map_header:
+                active_node = active_node.parent # Activating parent node.
         i += 1
     
     return active_node
