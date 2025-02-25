@@ -52,7 +52,7 @@ class ioOTBM:
         else:
             buffer = b'\xfe'
         
-        buffer = buffer + pack('<b', otbm['type'])
+        buffer += pack('<b', otbm['type'])
         tbuffer = b''
         children = b''
 
@@ -81,7 +81,7 @@ class ioOTBM:
         except:
             pass           
         
-        buffer = buffer + tbuffer + b'\xff'
+        buffer += tbuffer + b'\xff'
         return buffer
 
     @staticmethod
@@ -243,9 +243,18 @@ class node:
                 dict_node['children'].append(child.to_dict())
         
         return dict_node
+    
+    def children_to_buffer(self):
+        buffer = b''
+
+        for child in self.children:
+            b_child = child.to_buffer()
+            buffer += b_child
+        
+        return buffer
 
 class map_header(node):
-    def __init__(self, buffer: bytes=None, **kwargs):
+    def __init__(self, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 0
 
@@ -260,7 +269,7 @@ class map_header(node):
         else:
             raise('map_header init failed.')
 
-    def from_buffer(self, buffer: bytes):
+    def from_buffer(self, buffer: bytes) -> None:
         io = ioOTBM    
 
         self.version = io.read_Int4LE(buffer[1:5])
@@ -270,9 +279,32 @@ class map_header(node):
         self.items_min_version = io.read_Int4LE(buffer[13:17])
 
         return
+    
+    def to_buffer(self) -> bytes:
+        from struct import pack
+        io = ioOTBM
+
+        magic_bytes = bytes(4)
+        b_type = pack('<b', self.type)
+        b_version = pack('<i', self.version)
+        b_width = pack('<h', self.width)
+        b_height = pack('<h', self.height)
+        b_imjv = pack('<i', self.items_maj_version)
+        b_imnv = pack('<i', self.items_min_version)
+
+        buffer = magic_bytes + h.NODE_INIT + b_type + b_version + b_width + b_height + b_imjv + b_imnv
+
+        buffer = io.insert_escape_byte(buffer=buffer)
+
+        if self.children:
+            buffer += self.children_to_buffer()
+
+        buffer += h.NODE_END
+
+        return buffer
 
 class map_data(node):
-    def __init__(self, parent: map_header, buffer: bytes=None, **kwargs):
+    def __init__(self, parent: map_header, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 2
         self.parent = parent
@@ -283,7 +315,7 @@ class map_data(node):
         else:
             self.description.append("Saved with Remere's Map Editor 3.7.0")
 
-    def from_buffer(self, buffer: bytes):
+    def from_buffer(self, buffer: bytes) -> None:
         i = 0
         
         while True:
@@ -301,14 +333,43 @@ class map_data(node):
                 case h.OTBM_ATTR_EXT_SPAWN_FILE:
                     length = buffer[i+1]
                     i += 2
-                    self.house_file = buffer[i:i+length].decode('ascii')
+                    self.spawn_file = buffer[i:i+length].decode('ascii')
                 case h.NODE_INIT:
+                    return buffer[i-1:]
+                case h.NODE_END:
                     return buffer[i-1:]
             
             i += 1
 
+    def to_buffer(self) -> bytes:
+        from struct import pack
+        io = ioOTBM
+
+        b_type = pack('<b', self.type)
+        buffer = h.NODE_INIT + b_type
+
+        for desc in self.description:
+            length = len(desc)
+            
+            buffer += h.NODE_ESC + h.OTBM_ATTR_DESCRIPTION + length + bytes(1) + str.encode(desc)
+
+        if hasattr(self, 'house_file'):
+            length = len(self.house_file)
+
+        if hasattr(self, 'spawn_file'):
+            length = len(self.spawn_file)
+        
+        buffer = io.insert_escape_byte(buffer=buffer)
+
+        if self.children:
+            buffer += self.children_to_buffer()
+
+        buffer += h.NODE_END
+
+        return buffer
+
 class tile_area(node):
-    def __init__(self, parent: map_data, buffer: bytes=None, **kwargs):
+    def __init__(self, parent: map_data, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 4
         self.parent = parent
@@ -320,7 +381,7 @@ class tile_area(node):
             self.y = kwargs.get('y')
             self.z = kwargs.get('z')
 
-    def from_buffer(self, buffer: bytes):
+    def from_buffer(self, buffer: bytes) -> None:
         io = ioOTBM
 
         self.x = io.read_Int2LE(buffer[1:3])
@@ -328,9 +389,29 @@ class tile_area(node):
         self.z = io.read_Int1LE(buffer[5:6])
 
         return
+    
+    def to_buffer(self) -> bytes:
+        from struct import pack
+        io = ioOTBM
+
+        b_type = pack('<b', self.type)
+        b_x = pack('<h', self.x)
+        b_y = pack('<h', self.y)
+        b_z = pack('<b', self.z)
+
+        buffer = h.NODE_INIT + b_type + b_x + b_y + b_z
+
+        buffer = io.insert_escape_byte(buffer=buffer)
+
+        if self.children:
+            buffer += self.children_to_buffer()
+
+        buffer += h.NODE_END
+
+        return buffer
         
 class tile(node):
-    def __init__(self, parent: tile_area, buffer: bytes=None, **kwargs):
+    def __init__(self, parent: tile_area, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 5
         self.parent = parent
@@ -342,7 +423,7 @@ class tile(node):
             self.y = kwargs.get('y')
             self.tileid = kwargs.get('tileid')
     
-    def from_buffer(self, buffer: bytes):
+    def from_buffer(self, buffer: bytes) -> None:
         io = ioOTBM
 
         self.x = io.read_SignedInt1LE(buffer[1:2])
@@ -351,6 +432,26 @@ class tile(node):
             self.tileid = io.read_Int2LE(buffer[4:6])
 
         return
+    
+    def to_buffer(self) -> bytes:
+        from struct import pack
+        io = ioOTBM
+
+        b_type = pack('<b', self.type)
+        b_x = pack('<B', self.x)
+        b_y = pack('<B', self.y)
+        b_tileid = pack('<h', self.tileid)
+
+        buffer = h.NODE_INIT + b_type + b_x + b_y + h.OTBM_ATTR_ITEM + b_tileid
+
+        buffer = io.insert_escape_byte(buffer=buffer)
+
+        if self.children:
+            buffer += self.children_to_buffer()
+
+        buffer += h.NODE_END
+
+        return buffer
 
 class towns(node):
     def __init__(self, parent):
@@ -358,11 +459,27 @@ class towns(node):
         self.type = 12
         self.parent = parent
 
+    def to_buffer(self):
+        from struct import pack
+        b_type = pack('<b', self.type)
+
+        buffer = h.NODE_INIT + b_type + h.NODE_END
+
+        return buffer
+
 class waypoints(node):
     def __init__(self, parent):
         super().__init__()
         self.type = 15
         self.parent = parent
+
+    def to_buffer(self):
+        from struct import pack
+        b_type = pack('<b', self.type)
+
+        buffer = h.NODE_INIT + b_type + h.NODE_END
+
+        return buffer
 
 def parse_buffer(buffer: bytes) -> node:
     print('Reading OTBM buffer...')
@@ -388,39 +505,8 @@ def parse_buffer(buffer: bytes) -> node:
                 active_node = child # Child becomes the active node
 
         elif curr == h.NODE_END and prev != h.NODE_ESC:
-            if type(active_node) is not map_header:
+            if hasattr(active_node, 'parent'):
                 active_node = active_node.parent # Activating parent node.
         i += 1
     
     return active_node
-
-# To be removed 
-#def parse_buffer(buffer: bytes) -> node:
-#    print('Reading OTBM buffer...')
-#    i = 0
-#    active_node = None
-#
-#    while i < len(buffer):
-#        curr = buffer[i].to_bytes()
-#        prev = buffer[i-1].to_bytes()
-#
-#        if curr == h.NODE_INIT and prev != h.NODE_ESC:
-#            if active_node is None:
-#                # Initializes active node if there is none
-#                active_node = node()
-#                active_node.match_node(buffer=buffer[i:])
-#
-#            else:
-#                # If there is an active node, a NODE INIT indicates a children
-#                child = node(parent=active_node)
-#                child.match_node(buffer=buffer[i:])
-#                active_node.children.append(child)
-#                active_node = child # Child becomes the active node
-#
-#        elif curr == h.NODE_END and prev != h.NODE_ESC:
-#            if active_node.parent is not None:
-#                active_node = active_node.parent # Activating parent node.
-#
-#        i += 1
-#    
-#    return active_node
