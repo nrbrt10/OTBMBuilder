@@ -376,7 +376,7 @@ class tile_area(node):
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif kwargs.get('x') and kwargs.get('y') and kwargs.get('z'):
+        else:
             self.x = kwargs.get('x')
             self.y = kwargs.get('y')
             self.z = kwargs.get('z')
@@ -418,7 +418,7 @@ class tile(node):
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif kwargs.get('x') and  kwargs.get('y') and  kwargs.get('tileid'):
+        else:
             self.x = kwargs.get('x')
             self.y = kwargs.get('y')
             self.tileid = kwargs.get('tileid')
@@ -496,7 +496,6 @@ def parse_buffer(buffer: bytes) -> node:
                 print(f'Root found at {i}.')
                 active_node = node.node_from_buffer(buffer=buffer[i:])
                 
-
             else:
                 # If there is an active node, a NODE INIT indicates a children
                 print(f'Child found at {i}')
