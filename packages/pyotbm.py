@@ -285,6 +285,8 @@ class map_header(node):
         io = ioOTBM
 
         magic_bytes = bytes(4)
+        buffer = magic_bytes + h.NODE_INIT
+        
         b_type = pack('<b', self.type)
         b_version = pack('<i', self.version)
         b_width = pack('<h', self.width)
@@ -292,14 +294,14 @@ class map_header(node):
         b_imjv = pack('<i', self.items_maj_version)
         b_imnv = pack('<i', self.items_min_version)
 
-        buffer = magic_bytes + h.NODE_INIT + b_type + b_version + b_width + b_height + b_imjv + b_imnv
+        temp_buffer = b_type + b_version + b_width + b_height + b_imjv + b_imnv
 
-        buffer = io.insert_escape_byte(buffer=buffer)
+        temp_buffer = io.insert_escape_byte(buffer=temp_buffer)
 
         if self.children:
-            buffer += self.children_to_buffer()
+            temp_buffer += self.children_to_buffer()
 
-        buffer += h.NODE_END
+        buffer += temp_buffer + h.NODE_END
 
         return buffer
 
@@ -349,22 +351,22 @@ class map_data(node):
         buffer = h.NODE_INIT + b_type
 
         for desc in self.description:
-            length = len(desc)
+            length = len(desc).to_bytes()
             
-            buffer += h.NODE_ESC + h.OTBM_ATTR_DESCRIPTION + length + bytes(1) + str.encode(desc)
+            temp_buffer = h.OTBM_ATTR_DESCRIPTION + length + bytes(1) + str.encode(desc)
 
         if hasattr(self, 'house_file'):
-            length = len(self.house_file)
+            length = len(self.house_file).to_bytes()
 
         if hasattr(self, 'spawn_file'):
-            length = len(self.spawn_file)
+            length = len(self.spawn_file).to_bytes()
         
-        buffer = io.insert_escape_byte(buffer=buffer)
+        temp_buffer = io.insert_escape_byte(buffer=temp_buffer)
 
         if self.children:
-            buffer += self.children_to_buffer()
+            temp_buffer += self.children_to_buffer()
 
-        buffer += h.NODE_END
+        buffer += temp_buffer + h.NODE_END
 
         return buffer
 
@@ -376,7 +378,7 @@ class tile_area(node):
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif kwargs.get('x') and kwargs.get('y') and kwargs.get('z'):
+        else:
             self.x = kwargs.get('x')
             self.y = kwargs.get('y')
             self.z = kwargs.get('z')
@@ -394,19 +396,21 @@ class tile_area(node):
         from struct import pack
         io = ioOTBM
 
+        buffer = h.NODE_INIT
+        
         b_type = pack('<b', self.type)
         b_x = pack('<h', self.x)
         b_y = pack('<h', self.y)
         b_z = pack('<b', self.z)
 
-        buffer = h.NODE_INIT + b_type + b_x + b_y + b_z
+        temp_buffer = b_type + b_x + b_y + b_z
 
-        buffer = io.insert_escape_byte(buffer=buffer)
+        temp_buffer = io.insert_escape_byte(buffer=temp_buffer)
 
         if self.children:
-            buffer += self.children_to_buffer()
+            temp_buffer += self.children_to_buffer()
 
-        buffer += h.NODE_END
+        buffer += temp_buffer + h.NODE_END
 
         return buffer
         
@@ -418,7 +422,7 @@ class tile(node):
 
         if buffer:
             self.from_buffer(buffer=buffer)
-        elif kwargs.get('x') and  kwargs.get('y') and  kwargs.get('tileid'):
+        else:
             self.x = kwargs.get('x')
             self.y = kwargs.get('y')
             self.tileid = kwargs.get('tileid')
@@ -437,19 +441,21 @@ class tile(node):
         from struct import pack
         io = ioOTBM
 
+        buffer = h.NODE_INIT
+
         b_type = pack('<b', self.type)
         b_x = pack('<B', self.x)
         b_y = pack('<B', self.y)
         b_tileid = pack('<h', self.tileid)
 
-        buffer = h.NODE_INIT + b_type + b_x + b_y + h.OTBM_ATTR_ITEM + b_tileid
+        temp_buffer = b_type + b_x + b_y + h.OTBM_ATTR_ITEM + b_tileid
 
-        buffer = io.insert_escape_byte(buffer=buffer)
+        temp_buffer = io.insert_escape_byte(buffer=temp_buffer)
 
         if self.children:
-            buffer += self.children_to_buffer()
+            temp_buffer += self.children_to_buffer()
 
-        buffer += h.NODE_END
+        buffer += temp_buffer + h.NODE_END
 
         return buffer
 
@@ -496,7 +502,6 @@ def parse_buffer(buffer: bytes) -> node:
                 print(f'Root found at {i}.')
                 active_node = node.node_from_buffer(buffer=buffer[i:])
                 
-
             else:
                 # If there is an active node, a NODE INIT indicates a children
                 print(f'Child found at {i}')

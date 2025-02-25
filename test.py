@@ -8,13 +8,14 @@ tile_area = pyotbm.tile_area(x=500, y=500, z=7, parent=map_data)
 map_data.children.append(tile_area)
 
 tileid = 101
+index = 0
 
 for i in range(10):
     for j in range(10):
-        tile_area.children.append(pyotbm.tile(parent=tile_area, x=i, y=j, tileid=101))
+        
+        tile_area.children.append(pyotbm.tile(parent=tile_area, x=i, y=j, tileid=103))
 
+b_test_map = test_map.to_buffer()
 
-t = test_map.to_dict()
+pyotbm.ioOTBM.create_otbm(buffer=b_test_map, filename='test2.otbm')
 
-io = pyotbm.ioOTBM
-io.create_otbm(io.encode_otbm(t), 'test_map.otbm')
