@@ -144,6 +144,9 @@ class node:
             case h.OTBM_TILE:
                 return tile(buffer=buffer, parent=parent)
             
+            case h.OTBM_ITEM:
+                return item(buffer=buffer, parent=parent)
+            
             case h.OTBM_TOWNS:
                 return towns(parent=parent)
             
@@ -226,7 +229,7 @@ class node:
 #                case h.NODE_INIT:
 #                    return buffer[i-1:]
 
-    def to_dict(self) -> dict:
+    def to_dict(self, children=None) -> dict:
         remove_attr = [
             'children',
             'parent'
@@ -236,11 +239,12 @@ class node:
 
         dict_node = {key: value for key, value in dict_node.items() if key not in remove_attr}
 
-        if self.children:
-            dict_node['children'] = []
+        if children:
+            if self.children:
+                dict_node['children'] = []
 
-            for child in self.children:
-                dict_node['children'].append(child.to_dict())
+                for child in self.children:
+                    dict_node['children'].append(child.to_dict(children=True))
         
         return dict_node
     
@@ -326,15 +330,15 @@ class map_data(node):
             match curr:
                 case h.OTBM_ATTR_DESCRIPTION:
                     length = buffer[i+1]
-                    i += 2
+                    i += 3
                     self.description.append(buffer[i:i+length].decode('ascii'))
                 case h.OTBM_ATTR_EXT_HOUSE_FILE:
                     length = buffer[i+1]
-                    i += 2
+                    i += 3
                     self.house_file = buffer[i:i+length].decode('ascii')
                 case h.OTBM_ATTR_EXT_SPAWN_FILE:
                     length = buffer[i+1]
-                    i += 2
+                    i += 3
                     self.spawn_file = buffer[i:i+length].decode('ascii')
                 case h.NODE_INIT:
                     return buffer[i-1:]
@@ -449,6 +453,44 @@ class tile(node):
         b_tileid = pack('<h', self.tileid)
 
         temp_buffer = b_type + b_x + b_y + h.OTBM_ATTR_ITEM + b_tileid
+
+        temp_buffer = io.insert_escape_byte(buffer=temp_buffer)
+
+        if self.children:
+            temp_buffer += self.children_to_buffer()
+
+        buffer += temp_buffer + h.NODE_END
+
+        return buffer
+    
+class item(node):
+    def __init__(self, parent: tile, buffer: bytes=None, **kwargs) -> None:
+        super().__init__()
+        self.type = 6
+        self.parent = parent
+
+        if buffer:
+            self.from_buffer(buffer=buffer)
+        else:
+            self.item = kwargs.get('itemid')
+
+    def from_buffer(self, buffer: bytes) -> None:
+        io = ioOTBM
+
+        self.itemid = io.read_Int2LE(buffer[1:3])
+
+        return
+
+    def to_buffer(self):
+        from struct import pack
+        io = ioOTBM
+
+        buffer = h.NODE_INIT
+
+        b_type = pack('<b', self.type)
+        b_itemid = pack('<h', self.itemid)
+
+        temp_buffer = b_type + b_itemid
 
         temp_buffer = io.insert_escape_byte(buffer=temp_buffer)
 

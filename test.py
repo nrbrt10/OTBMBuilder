@@ -19,3 +19,10 @@ b_test_map = test_map.to_buffer()
 
 pyotbm.ioOTBM.create_otbm(buffer=b_test_map, filename='test2.otbm')
 
+buffer = pyotbm.ioOTBM.load_buffer(otbm='D:/Documents/Python/OTBMBuilder/test2.otbm')
+
+test = pyotbm.parse_buffer(buffer)
+
+test.to_dict(True)
+
+buffer
