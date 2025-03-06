@@ -152,6 +152,9 @@ class node:
             
             case h.OTBM_WAYPOINTS:
                 return waypoints(parent=parent)
+            
+            case _:
+                return cls(parent=parent)
 
 # Method superseded by node_from_buffer and subclass' from_buffer            
 #    def match_node(self, buffer: bytes) -> None:
