@@ -78,7 +78,7 @@ class ioOTBM:
             except Exception as e:
                 print(e)
 
-class node:
+class Node:
     def __init__(self):
         self.children = []
     
@@ -92,29 +92,30 @@ class node:
         
         match header:
             case h.OTBM_MAP_HEADER:
-                return map_header(buffer=buffer)
+                return Map_header(buffer=buffer)
             
             case h.OTBM_MAP_DATA:
-                return map_data(buffer=buffer, parent=parent)
+                return Map_data(buffer=buffer, parent=parent)
             
             case h.OTBM_TILE_AREA:
-                return tile_area(buffer=buffer, parent=parent)
+                return Tile_area(buffer=buffer, parent=parent)
             
             case h.OTBM_TILE:
-                return tile(buffer=buffer, parent=parent)
+                return Tile(buffer=buffer, parent=parent)
             
             case h.OTBM_ITEM:
-                return item(buffer=buffer, parent=parent)
+                return Item(buffer=buffer, parent=parent)
             
             case h.OTBM_TOWNS:
-                return towns(parent=parent)
+                return Towns(parent=parent)
             
             case h.OTBM_WAYPOINTS:
-                return waypoints(parent=parent)
+                return Waypoints(parent=parent)
             
             case _:
                 return cls(parent=parent)
 
+    @classmethod
     def to_dict(self, children=None) -> dict:
         remove_attr = [
             'children',
@@ -134,6 +135,7 @@ class node:
         
         return dict_node
     
+    @classmethod
     def children_to_buffer(self):
         buffer = b''
 
@@ -143,10 +145,18 @@ class node:
         
         return buffer
     
-    def __repr__(self) -> None:
-        print(f'{self.__class__.__name__}:\n{self.__dict__}')
+    def __repr__(self) -> str:
+        as_str = ''
 
-class map_header(node):
+        for attr, value in self.__dict__.items():            
+            if attr == 'children':
+                as_str += f'children: [{len(value)} children]'
+            else:
+                as_str += f'{attr}: {value}\n\t'
+
+        return f'{self.__class__.__name__}:\n\t{as_str}'
+    
+class Map_header(Node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 0
@@ -198,8 +208,8 @@ class map_header(node):
 
         return buffer
 
-class map_data(node):
-    def __init__(self, parent: map_header, buffer: bytes=None, **kwargs) -> None:
+class Map_data(Node):
+    def __init__(self, parent: Map_header, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 2
         self.parent = parent
@@ -263,8 +273,8 @@ class map_data(node):
 
         return buffer
 
-class tile_area(node):
-    def __init__(self, parent: map_data, buffer: bytes=None, **kwargs) -> None:
+class Tile_area(Node):
+    def __init__(self, parent: Map_data, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 4
         self.parent = parent
@@ -307,8 +317,8 @@ class tile_area(node):
 
         return buffer
         
-class tile(node):
-    def __init__(self, parent: tile_area, buffer: bytes=None, **kwargs) -> None:
+class Tile(Node):
+    def __init__(self, parent: Tile_area, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 5
         self.parent = parent
@@ -352,8 +362,8 @@ class tile(node):
 
         return buffer
     
-class item(node):
-    def __init__(self, parent: tile, buffer: bytes=None, **kwargs) -> None:
+class Item(Node):
+    def __init__(self, parent: Tile, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 6
         self.parent = parent
@@ -390,7 +400,7 @@ class item(node):
 
         return buffer
 
-class towns(node):
+class Towns(Node):
     def __init__(self, parent):
         super().__init__()
         self.type = 12
@@ -404,7 +414,7 @@ class towns(node):
 
         return buffer
 
-class waypoints(node):
+class Waypoints(Node):
     def __init__(self, parent):
         super().__init__()
         self.type = 15
@@ -418,7 +428,7 @@ class waypoints(node):
 
         return buffer
 
-def parse_buffer(buffer: bytes) -> node:
+def parse_buffer(buffer: bytes) -> Node:
     print('Reading OTBM buffer...')
     i = 0
     active_node = None
@@ -431,12 +441,12 @@ def parse_buffer(buffer: bytes) -> node:
             if active_node is None:
                 # Initializes active node if there is none
                 print(f'Root found at {i}.')
-                active_node = node.node_from_buffer(buffer=buffer[i:])
+                active_node = Node.node_from_buffer(buffer=buffer[i:])
                 
             else:
                 # If there is an active node, a NODE INIT indicates a children
                 print(f'Child found at {i}')
-                child = node.node_from_buffer(buffer=buffer[i:], parent=active_node)
+                child = Node.node_from_buffer(buffer=buffer[i:], parent=active_node)
                 active_node.children.append(child)
                 active_node = child # Child becomes the active node
 
