@@ -43,47 +43,6 @@ class ioOTBM:
         else:
             raise('Buffer length not 1.')
 
-    @classmethod
-    def encode_otbm(self, otbm: dict) -> bytes:
-        from struct import pack
-        
-        if otbm['type'] == 0:
-            buffer = b'\x00\x00\x00\x00\xfe'
-        else:
-            buffer = b'\xfe'
-        
-        buffer += pack('<b', otbm['type'])
-        tbuffer = b''
-        children = b''
-
-        match otbm['type']:
-            case 0:
-                tbuffer = pack('<i', otbm['version']) + pack('<h', otbm['width']) + pack('<h', otbm['height']) + pack('<i', otbm['items_maj_version']) + pack('<i', otbm['items_min_version'])
-            case 2:
-                for desc in otbm['description']:
-                    length = len(desc).to_bytes()
-                    tbuffer = tbuffer + h.OTBM_ATTR_DESCRIPTION + length + bytes(1) + str.encode(desc)
-            case 4:
-                tbuffer = pack('<h', otbm['x']) + pack('<h', otbm['y']) + pack('<b', otbm['z'])
-            case 5:
-                tbuffer = pack('<B', otbm['x']) + pack('<B', otbm['y']) + h.OTBM_ATTR_ITEM + pack('<h', otbm['tileid'])
-            case 12:
-                pass
-            case 15:
-                pass
-
-        tbuffer = self.insert_escape_byte(tbuffer)
-
-        try:
-            for node in otbm['children']:
-                children = self.encode_otbm(node)
-                tbuffer = tbuffer + children
-        except:
-            pass           
-        
-        buffer += tbuffer + b'\xff'
-        return buffer
-
     @staticmethod
     def insert_escape_byte(buffer: bytes) -> bytes:
         i = 0
@@ -156,82 +115,6 @@ class node:
             case _:
                 return cls(parent=parent)
 
-# Method superseded by node_from_buffer and subclass' from_buffer            
-#    def match_node(self, buffer: bytes) -> None:
-#
-#        io = ioOTBM
-#        # Removes ESC bytes from the node content
-#        buffer = io.remove_escape_byte(buffer=buffer[1:])
-#
-#        match buffer[0].to_bytes():
-#            case h.OTBM_MAP_HEADER:
-#                self.type = 0
-#                self.version = io.read_Int4LE(buffer[1:5])
-#                self.width = io.read_Int2LE(buffer[5:7])
-#                self.height = io.read_Int2LE(buffer[7:9])
-#                self.items_maj_version = io.read_Int4LE(buffer[9:13])
-#                self.items_min_version = io.read_Int4LE(buffer[13:17])
-#            
-#            case h.OTBM_MAP_DATA:
-#                self.type = 2
-#                i = self.walk_desc(buffer=buffer)
-#                self.description = []
-#                #self.match_attributes(buffer[1:])
-#                self.description = buffer[1:i] # Just copying the description as is because I don't care about this functionality yet.
-#
-#            case h.OTBM_TILE_AREA:
-#                self.type = 4
-#                self.x = io.read_Int2LE(buffer[1:3])
-#                self.y = io.read_Int2LE(buffer[3:5])
-#                self.z = io.read_Int1LE(buffer[5:6])
-#
-#            case h.OTBM_TILE:
-#                self.type = 5
-#                self.x = io.read_SignedInt1LE(buffer[1:2])
-#                self.y = io.read_SignedInt1LE(buffer[2:3])
-#                if buffer[3].to_bytes() == h.OTBM_ATTR_ITEM:
-#                    self.tileid = io.read_Int2LE(buffer[4:6])
-#
-#            case h.OTBM_TOWNS:
-#                self.type = 12
-#
-#            case h.OTBM_WAYPOINTS:
-#                self.type = 15
-#
-#        return
-#    
-#    def walk_desc(self, buffer: bytes) -> int:
-#        i = 1
-#        while True:
-#            next = buffer[i+1].to_bytes()
-#            
-#            if next == h.NODE_INIT:
-#                return i+1
-#
-#            i += 1
-#
-#    def match_attributes(self, buffer: bytes) -> None:
-#        i = 0
-#        
-#        while True:
-#            curr = buffer[i].to_bytes()
-#
-#            match curr:
-#                case h.OTBM_ATTR_DESCRIPTION:
-#                    length = buffer[i+1]
-#                    i += 2
-#                    self.description.append(buffer[i:i+length].decode('ascii'))
-#                case h.OTBM_ATTR_EXT_HOUSE_FILE:
-#                    length = buffer[i+1]
-#                    i += 2
-#                    self.house_file = buffer[i:i+length].decode('ascii')
-#                case h.OTBM_ATTR_EXT_SPAWN_FILE:
-#                    length = buffer[i+1]
-#                    i += 2
-#                    self.house_file = buffer[i:i+length].decode('ascii')
-#                case h.NODE_INIT:
-#                    return buffer[i-1:]
-
     def to_dict(self, children=None) -> dict:
         remove_attr = [
             'children',
@@ -259,6 +142,10 @@ class node:
             buffer += b_child
         
         return buffer
+    
+    def __repr__(self):
+        print(f'{self.__class__.__name__}:\n{self.to_dict()}')
+        return
 
 class map_header(node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
