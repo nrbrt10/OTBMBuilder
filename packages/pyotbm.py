@@ -143,9 +143,8 @@ class node:
         
         return buffer
     
-    def __repr__(self):
-        print(f'{self.__class__.__name__}:\n{self.to_dict()}')
-        return
+    def __repr__(self) -> None:
+        print(f'{self.__class__.__name__}:\n{self.__dict__}')
 
 class map_header(node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
