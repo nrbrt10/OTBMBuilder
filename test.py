@@ -1,21 +1,17 @@
 from packages import pyotbm
 
-test_map = pyotbm.map_header(width=2048, height=2048)
-map_data = pyotbm.map_data(parent=test_map)
-test_map.children.append(map_data)
-
-tile_area = pyotbm.tile_area(x=500, y=500, z=7, parent=map_data)
-map_data.children.append(tile_area)
-
-tileid = 101
-index = 0
+test_map = pyotbm.Map_header(width=2048, height=2048)
+map_data = pyotbm.Map_data(parent=test_map)
+tile_area = pyotbm.Tile_area(x=500, y=500, z=7, parent=map_data)
 
 for i in range(10):
     for j in range(10):
-        
-        tile_area.children.append(pyotbm.tile(parent=tile_area, x=i, y=j, tileid=103))
+        pyotbm.Tile(parent=tile_area, x=i, y=j, tileid=101)
 
+test_map.to_buffer()
 b_test_map = test_map.to_buffer()
+
+pyotbm.ioOTBM.create_otbm(buffer=b_test_map,filename='newTest.otbm')
 
 import numpy as np
 from PIL import Image
@@ -40,6 +36,9 @@ int(6489/4)+1
 stepx = int(image_array.shape[0]/6)
 stepy = int(image_array.shape[1]/8)
 
+stepx
+stepy
+
 botx = 0
 topx = stepx
 
@@ -60,7 +59,7 @@ while topy <= image_array.shape[1]:
     topy += stepy
 
 
-unique_bytes = []
+map_sections = []
 
 for x in range(0, image_array.shape[0], stepx):
     for y in range(0, image_array.shape[1], stepy):
@@ -68,12 +67,23 @@ for x in range(0, image_array.shape[0], stepx):
         #plt.imshow(image_array[x:x+stepx, y:y+stepy])
         #plt.show()
 
-        unique_bytes.append(np.unique(image_array[x:x+stepx, y:y+stepy].reshape(-1, image_array[2]),axis=0))
+        map_sections.append(image_array[x:x+stepx, y:y+stepy])
+
+
 
 
 np.unique(image_array.reshape(-1, image_array.shape[2]), axis=0)
 
+sub_array = image_array[botx:botx+stepx, boty:boty+stepy]
 
+unique_bytes = np.unique(sub_array.reshape(-1, sub_array.shape[2]), axis=0)
+
+plt.imshow(sub_array)
+plt.show()
+
+unique_bytes
+
+len(sub_array.reshape(-1, sub_array.shape[2]))
 
 unique_values = np.unique(image_array[:3245, 10080:].reshape(-1, image_array[2]),axis=0)
 
@@ -101,8 +111,8 @@ for i in range(len(data['biomesData']['name'])):
 
 def hex_to_rgba(hex_color):
     hex_color = hex_color.lstrip("#")
-    rgba = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    return rgba
+    rgb = [int(hex_color[i:i+2], 16) for i in (0, 2, 4)]
+    return rgb
 
 b_biomes = {}
 
@@ -111,5 +121,11 @@ for biome, color in biomes.items():
 
 b_biomes
 
+for byte in unique_bytes[:,:3]:
+    if list(byte) in b_biomes.values():
+        print(byte)
 
-image_array
+
+unique_bytes[:,:3]
+
+b_biomes

@@ -168,3 +168,5 @@ cython_debug/
 *spawn.xml
 *.json
 test.py
+*.png
+*.zip

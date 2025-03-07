@@ -79,11 +79,15 @@ class ioOTBM:
                 print(e)
 
 class Node:
-    def __init__(self):
+    def __init__(self, parent: object=None):
+        self.parent = parent
         self.children = []
+
+        if parent:
+            parent.children.append(self)
     
     @classmethod
-    def node_from_buffer(cls, buffer: bytes, parent=None) -> object:
+    def node_from_buffer(cls, buffer: bytes, parent: object) -> object:
         io = ioOTBM
         
         buffer = io.remove_escape_byte(buffer=buffer[1:]) # Starts one byte after h.NODE_INIT
@@ -115,47 +119,51 @@ class Node:
             case _:
                 return cls(parent=parent)
 
-    @classmethod
     def to_dict(self, children=None) -> dict:
-        remove_attr = [
-            'children',
-            'parent'
-            ]
-        
-        dict_node = self.__dict__
+        remove_attr = ['children', 'parent']
 
-        dict_node = {key: value for key, value in dict_node.items() if key not in remove_attr}
+        dict_node = {key: value for key, value in self.__dict__.items() if key not in remove_attr}
 
-        if children:
-            if self.children:
-                dict_node['children'] = []
-
-                for child in self.children:
-                    dict_node['children'].append(child.to_dict(children=True))
+        if children and self.children:
+                dict_node['children'] = [child.to_dict(children=True) for child in self.children]
         
         return dict_node
     
-    @classmethod
-    def children_to_buffer(self):
-        buffer = b''
-
-        for child in self.children:
-            b_child = child.to_buffer()
-            buffer += b_child
-        
-        return buffer
+    def children_to_buffer(self) -> bytes:
+        #buffer = b''
+#
+        #for child in self.children:
+        #    b_child = child.to_buffer()
+        #    buffer += b_child
+        #
+        return b''.join(child.to_buffer() for child in self.children)
     
-    def __repr__(self) -> str:
-        as_str = ''
+    #def __repr__(self) -> str:
+    #    class_name = f'{self.__class__.__name__}:\n\t'
+#
+    #    class_content = ''
+    #    for attr, value in self.__dict__.items():
+    #        
+    #        match attr:
+    #            case 'children':
+#
+    #                if value:
+    #                    child_name = value[0].__class__.__name__
+#
+    #                    if len(value) > 1:
+    #                        class_content += f'children: [{child_name} + {len(value) - 1} children]\n\t'
+    #                    else:
+    #                        class_content += f'children: [{child_name}]\n\t'
+    #                else:
+    #                    class_name += f'children: [0 children]\n\t'
+#
+    #            case 'parent':
+    #                class_content += f'parent: {value.__class__.__name__}\n\t'
+    #            case _:
+    #                class_content += f'{attr}: {value}\n\t'
+#
+    #    return class_name + class_content
 
-        for attr, value in self.__dict__.items():            
-            if attr == 'children':
-                as_str += f'children: [{len(value)} children]'
-            else:
-                as_str += f'{attr}: {value}\n\t'
-
-        return f'{self.__class__.__name__}:\n\t{as_str}'
-    
 class Map_header(Node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
@@ -210,9 +218,8 @@ class Map_header(Node):
 
 class Map_data(Node):
     def __init__(self, parent: Map_header, buffer: bytes=None, **kwargs) -> None:
-        super().__init__()
+        super().__init__(parent=parent)
         self.type = 2
-        self.parent = parent
         self.description = []
 
         if buffer:
@@ -275,9 +282,8 @@ class Map_data(Node):
 
 class Tile_area(Node):
     def __init__(self, parent: Map_data, buffer: bytes=None, **kwargs) -> None:
-        super().__init__()
+        super().__init__(parent=parent)
         self.type = 4
-        self.parent = parent
 
         if buffer:
             self.from_buffer(buffer=buffer)
@@ -319,9 +325,8 @@ class Tile_area(Node):
         
 class Tile(Node):
     def __init__(self, parent: Tile_area, buffer: bytes=None, **kwargs) -> None:
-        super().__init__()
+        super().__init__(parent=parent)
         self.type = 5
-        self.parent = parent
 
         if buffer:
             self.from_buffer(buffer=buffer)
@@ -364,9 +369,8 @@ class Tile(Node):
     
 class Item(Node):
     def __init__(self, parent: Tile, buffer: bytes=None, **kwargs) -> None:
-        super().__init__()
+        super().__init__(parent=parent)
         self.type = 6
-        self.parent = parent
 
         if buffer:
             self.from_buffer(buffer=buffer)
@@ -402,9 +406,8 @@ class Item(Node):
 
 class Towns(Node):
     def __init__(self, parent):
-        super().__init__()
+        super().__init__(parent=parent)
         self.type = 12
-        self.parent = parent
 
     def to_buffer(self):
         from struct import pack
@@ -416,9 +419,8 @@ class Towns(Node):
 
 class Waypoints(Node):
     def __init__(self, parent):
-        super().__init__()
+        super().__init__(parent=parent)
         self.type = 15
-        self.parent = parent
 
     def to_buffer(self):
         from struct import pack
@@ -447,11 +449,10 @@ def parse_buffer(buffer: bytes) -> Node:
                 # If there is an active node, a NODE INIT indicates a children
                 print(f'Child found at {i}')
                 child = Node.node_from_buffer(buffer=buffer[i:], parent=active_node)
-                active_node.children.append(child)
                 active_node = child # Child becomes the active node
 
         elif curr == h.NODE_END and prev != h.NODE_ESC:
-            if hasattr(active_node, 'parent'):
+            if active_node.parent:
                 active_node = active_node.parent # Activating parent node.
         i += 1
     
