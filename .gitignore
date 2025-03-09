@@ -166,7 +166,6 @@ cython_debug/
 *.otbm
 *house.xml
 *spawn.xml
-*.json
 test.py
 *.png
 *.zip

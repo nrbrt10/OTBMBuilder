@@ -1,4 +1,6 @@
-import packages.headers as h
+from packages import headers as h
+from packages import config_manager as config
+
 
 class ioOTBM:
     @staticmethod
@@ -86,39 +88,6 @@ class Node:
         if parent:
             parent.children.append(self)
     
-    @classmethod
-    def node_from_buffer(cls, buffer: bytes, parent: object) -> object:
-        io = ioOTBM
-        
-        buffer = io.remove_escape_byte(buffer=buffer[1:]) # Starts one byte after h.NODE_INIT
-
-        header = buffer[0].to_bytes()
-        
-        match header:
-            case h.OTBM_MAP_HEADER:
-                return Map_header(buffer=buffer)
-            
-            case h.OTBM_MAP_DATA:
-                return Map_data(buffer=buffer, parent=parent)
-            
-            case h.OTBM_TILE_AREA:
-                return Tile_area(buffer=buffer, parent=parent)
-            
-            case h.OTBM_TILE:
-                return Tile(buffer=buffer, parent=parent)
-            
-            case h.OTBM_ITEM:
-                return Item(buffer=buffer, parent=parent)
-            
-            case h.OTBM_TOWNS:
-                return Towns(parent=parent)
-            
-            case h.OTBM_WAYPOINTS:
-                return Waypoints(parent=parent)
-            
-            case _:
-                return cls(parent=parent)
-
     def to_dict(self, children=None) -> dict:
         remove_attr = ['children', 'parent']
 
@@ -130,41 +99,35 @@ class Node:
         return dict_node
     
     def children_to_buffer(self) -> bytes:
-        #buffer = b''
-#
-        #for child in self.children:
-        #    b_child = child.to_buffer()
-        #    buffer += b_child
-        #
         return b''.join(child.to_buffer() for child in self.children)
     
-    #def __repr__(self) -> str:
-    #    class_name = f'{self.__class__.__name__}:\n\t'
-#
-    #    class_content = ''
-    #    for attr, value in self.__dict__.items():
-    #        
-    #        match attr:
-    #            case 'children':
-#
-    #                if value:
-    #                    child_name = value[0].__class__.__name__
-#
-    #                    if len(value) > 1:
-    #                        class_content += f'children: [{child_name} + {len(value) - 1} children]\n\t'
-    #                    else:
-    #                        class_content += f'children: [{child_name}]\n\t'
-    #                else:
-    #                    class_name += f'children: [0 children]\n\t'
-#
-    #            case 'parent':
-    #                class_content += f'parent: {value.__class__.__name__}\n\t'
-    #            case _:
-    #                class_content += f'{attr}: {value}\n\t'
-#
-    #    return class_name + class_content
+"""     def __repr__(self) -> str:
+       class_name = f'{self.__class__.__name__}:\n\t'
 
-class Map_header(Node):
+       class_content = ''
+       for attr, value in self.__dict__.items():
+           
+           match attr:
+               case 'children':
+
+                   if value:
+                       child_name = value[0].__class__.__name__
+
+                       if len(value) > 1:
+                           class_content += f'children: [{child_name} + {len(value) - 1} children]\n\t'
+                       else:
+                           class_content += f'children: [{child_name}]\n\t'
+                   else:
+                       class_name += f'children: [0 children]\n\t'
+
+               case 'parent':
+                   class_content += f'parent: {value.__class__.__name__}\n\t'
+               case _:
+                   class_content += f'{attr}: {value}\n\t'
+
+       return class_name + class_content """
+
+class MapHeader(Node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
         super().__init__()
         self.type = 0
@@ -178,7 +141,7 @@ class Map_header(Node):
             self.items_maj_version = 3
             self.items_min_version = 57
         else:
-            raise('map_header init failed.')
+            raise('MapHeader init failed.')
 
     def from_buffer(self, buffer: bytes) -> None:
         io = ioOTBM    
@@ -216,8 +179,8 @@ class Map_header(Node):
 
         return buffer
 
-class Map_data(Node):
-    def __init__(self, parent: Map_header, buffer: bytes=None, **kwargs) -> None:
+class MapData(Node):
+    def __init__(self, parent: MapHeader, buffer: bytes=None, **kwargs) -> None:
         super().__init__(parent=parent)
         self.type = 2
         self.description = []
@@ -280,8 +243,8 @@ class Map_data(Node):
 
         return buffer
 
-class Tile_area(Node):
-    def __init__(self, parent: Map_data, buffer: bytes=None, **kwargs) -> None:
+class TileArea(Node):
+    def __init__(self, parent: MapData, buffer: bytes=None, **kwargs) -> None:
         super().__init__(parent=parent)
         self.type = 4
 
@@ -324,7 +287,7 @@ class Tile_area(Node):
         return buffer
         
 class Tile(Node):
-    def __init__(self, parent: Tile_area, buffer: bytes=None, **kwargs) -> None:
+    def __init__(self, parent: TileArea, buffer: bytes=None, **kwargs) -> None:
         super().__init__(parent=parent)
         self.type = 5
 
@@ -430,6 +393,41 @@ class Waypoints(Node):
 
         return buffer
 
+class NodeFactory:
+    @staticmethod
+    def node_from_buffer(buffer: bytes, parent: object) -> object:
+        io = ioOTBM
+        
+        buffer = io.remove_escape_byte(buffer=buffer[1:]) # Starts one byte after h.NODE_INIT
+
+        header = buffer[0].to_bytes()
+        
+        match header:
+            case h.OTBM_MAP_HEADER:
+                return MapHeader(buffer=buffer)
+            
+            case h.OTBM_MAP_DATA:
+                return MapData(buffer=buffer, parent=parent)
+            
+            case h.OTBM_TILE_AREA:
+                return TileArea(buffer=buffer, parent=parent)
+            
+            case h.OTBM_TILE:
+                return Tile(buffer=buffer, parent=parent)
+            
+            case h.OTBM_ITEM:
+                return Item(buffer=buffer, parent=parent)
+            
+            case h.OTBM_TOWNS:
+                return Towns(parent=parent)
+            
+            case h.OTBM_WAYPOINTS:
+                return Waypoints(parent=parent)
+            
+            case _:
+                return Node(parent=parent)
+
+
 def parse_buffer(buffer: bytes) -> Node:
     print('Reading OTBM buffer...')
     i = 0
@@ -443,12 +441,12 @@ def parse_buffer(buffer: bytes) -> Node:
             if active_node is None:
                 # Initializes active node if there is none
                 print(f'Root found at {i}.')
-                active_node = Node.node_from_buffer(buffer=buffer[i:])
+                active_node = NodeFactory.node_from_buffer(buffer=buffer[i:])
                 
             else:
                 # If there is an active node, a NODE INIT indicates a children
                 print(f'Child found at {i}')
-                child = Node.node_from_buffer(buffer=buffer[i:], parent=active_node)
+                child = NodeFactory.node_from_buffer(buffer=buffer[i:], parent=active_node)
                 active_node = child # Child becomes the active node
 
         elif curr == h.NODE_END and prev != h.NODE_ESC:

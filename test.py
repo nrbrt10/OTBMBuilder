@@ -1,8 +1,9 @@
 from packages import pyotbm
+from packages import colors
 
-test_map = pyotbm.Map_header(width=2048, height=2048)
-map_data = pyotbm.Map_data(parent=test_map)
-tile_area = pyotbm.Tile_area(x=500, y=500, z=7, parent=map_data)
+test_map = pyotbm.MapHeader(width=2048, height=2048)
+map_data = pyotbm.MapData(parent=test_map)
+tile_area = pyotbm.Tile(x=500, y=500, z=7, parent=map_data)
 
 for i in range(10):
     for j in range(10):
@@ -16,9 +17,11 @@ pyotbm.ioOTBM.create_otbm(buffer=b_test_map,filename='newTest.otbm')
 import numpy as np
 from PIL import Image
 
-path = 'D:/Downloads/Erar 2025-02-05-00-38.png'
+path = 'A2.png'
 
 image = Image.open(path).convert('RGBA')
+
+pixels = image.load()
 
 image_array = np.array(image)
 
@@ -26,18 +29,9 @@ import matplotlib.pyplot as plt
 plt.imshow(image_array)
 plt.show()
 
-plt.imshow(image_array[:3245, 10080:])
-plt.show()
-
-int(6489/2)+1
-
-int(6489/4)+1
-
 stepx = int(image_array.shape[0]/6)
 stepy = int(image_array.shape[1]/8)
 
-stepx
-stepy
 
 botx = 0
 topx = stepx
@@ -70,10 +64,6 @@ for x in range(0, image_array.shape[0], stepx):
         map_sections.append(image_array[x:x+stepx, y:y+stepy])
 
 
-
-
-np.unique(image_array.reshape(-1, image_array.shape[2]), axis=0)
-
 sub_array = image_array[botx:botx+stepx, boty:boty+stepy]
 
 unique_bytes = np.unique(sub_array.reshape(-1, sub_array.shape[2]), axis=0)
@@ -100,6 +90,8 @@ data.keys()
 
 data['pack'].keys()
 
+data['biomesData']
+
 biomes = {}
 
 for i in range(len(data['biomesData']['name'])):
@@ -117,15 +109,27 @@ def hex_to_rgba(hex_color):
 b_biomes = {}
 
 for biome, color in biomes.items():
+    biome = biome.replace(' ', '_').upper()
     b_biomes[biome] = hex_to_rgba(color)
 
-b_biomes
 
-for byte in unique_bytes[:,:3]:
-    if list(byte) in b_biomes.values():
-        print(byte)
-
-
-unique_bytes[:,:3]
+with open('colors.py', 'w+') as file:
+    file.write('\n'.join([f'{key} = {val}' for key, val in b_biomes.items()]))
 
 b_biomes
+
+[print(key, val) for key, val in b_biomes.items()]
+
+image.show()
+
+for biome in colors:
+    print(biome)
+
+
+for biome, pixel in b_biomes.items():
+
+    match pixel:
+        case [70, 110, 171]:
+            print(biome)
+        case [125, 203, 53]:
+            print(biome)
