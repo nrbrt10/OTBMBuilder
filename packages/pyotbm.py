@@ -1,7 +1,6 @@
 from packages import headers as h
 from packages import config_manager as config
 
-
 class ioOTBM:
     @staticmethod
     def load_buffer(otbm: str):
@@ -73,7 +72,7 @@ class ioOTBM:
             i += 1
 
     @staticmethod
-    def create_otbm(buffer:bytes, filename: str) -> None:
+    def serialize_otbm(buffer:bytes, filename: str) -> None:
         with open(filename, 'wb') as file:
             try:
                 file.write(buffer)
@@ -88,7 +87,7 @@ class Node:
         if parent:
             parent.children.append(self)
     
-    def to_dict(self, children=None) -> dict:
+    def to_dict(self, children=False) -> dict:
         remove_attr = ['children', 'parent']
 
         dict_node = {key: value for key, value in self.__dict__.items() if key not in remove_attr}
@@ -101,31 +100,8 @@ class Node:
     def children_to_buffer(self) -> bytes:
         return b''.join(child.to_buffer() for child in self.children)
     
-"""     def __repr__(self) -> str:
-       class_name = f'{self.__class__.__name__}:\n\t'
-
-       class_content = ''
-       for attr, value in self.__dict__.items():
-           
-           match attr:
-               case 'children':
-
-                   if value:
-                       child_name = value[0].__class__.__name__
-
-                       if len(value) > 1:
-                           class_content += f'children: [{child_name} + {len(value) - 1} children]\n\t'
-                       else:
-                           class_content += f'children: [{child_name}]\n\t'
-                   else:
-                       class_name += f'children: [0 children]\n\t'
-
-               case 'parent':
-                   class_content += f'parent: {value.__class__.__name__}\n\t'
-               case _:
-                   class_content += f'{attr}: {value}\n\t'
-
-       return class_name + class_content """
+    def __repr__(self) -> str:
+        return f'\n{self.__class__.__name__}:\n\t{'\n\t'.join([f'{k}: {v}' for k, v in self.to_dict().items()])}\n'
 
 class MapHeader(Node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
@@ -285,7 +261,13 @@ class TileArea(Node):
         buffer += temp_buffer + h.NODE_END
 
         return buffer
-        
+    
+    def find_xy(self, x: int, y: int):
+        relative_x = x - self.x
+        relative_y = y - self.y
+
+        return next((tile for tile in self.children if tile.x == relative_x and tile.y == relative_y), None)
+       
 class Tile(Node):
     def __init__(self, parent: TileArea, buffer: bytes=None, **kwargs) -> None:
         super().__init__(parent=parent)
@@ -395,7 +377,7 @@ class Waypoints(Node):
 
 class NodeFactory:
     @staticmethod
-    def node_from_buffer(buffer: bytes, parent: object) -> object:
+    def from_buffer(buffer: bytes, parent: Node) -> Node:
         io = ioOTBM
         
         buffer = io.remove_escape_byte(buffer=buffer[1:]) # Starts one byte after h.NODE_INIT
@@ -426,6 +408,10 @@ class NodeFactory:
             
             case _:
                 return Node(parent=parent)
+            
+    @staticmethod
+    def from_img(img):
+        pass
 
 
 def parse_buffer(buffer: bytes) -> Node:
@@ -441,12 +427,12 @@ def parse_buffer(buffer: bytes) -> Node:
             if active_node is None:
                 # Initializes active node if there is none
                 print(f'Root found at {i}.')
-                active_node = NodeFactory.node_from_buffer(buffer=buffer[i:])
+                active_node = NodeFactory.from_buffer(buffer=buffer[i:], parent=None)
                 
             else:
                 # If there is an active node, a NODE INIT indicates a children
                 print(f'Child found at {i}')
-                child = NodeFactory.node_from_buffer(buffer=buffer[i:], parent=active_node)
+                child = NodeFactory.from_buffer(buffer=buffer[i:], parent=active_node)
                 active_node = child # Child becomes the active node
 
         elif curr == h.NODE_END and prev != h.NODE_ESC:
