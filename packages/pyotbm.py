@@ -1,5 +1,4 @@
 from packages import headers as h
-from packages import config_manager as config
 
 class ioOTBM:
     @staticmethod
@@ -409,10 +408,30 @@ class NodeFactory:
             case _:
                 return Node(parent=parent)
             
+class MapFactory:
     @staticmethod
-    def from_img(img):
-        pass
+    def from_img(img_path):
+        from config_manager import BiomeFactory
+        from PIL import Image
+        import numpy as np
 
+        config_path = 'biome_config.json'
+        biomes = BiomeFactory.from_config(config_path)
+
+        biome_colors = {biome.base_color: biome for name, biome in biomes.items()}
+
+        with Image.open(img_path) as im:
+            image = im.convert('RGB')
+
+        map = MapHeader(width=image.width, height=image.height)
+        data = MapData(map)
+
+        image_array = np.array(image)
+        
+    @staticmethod
+    def _compute_TileArea_init():
+
+        pass
 
 def parse_buffer(buffer: bytes) -> Node:
     print('Reading OTBM buffer...')

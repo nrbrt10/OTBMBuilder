@@ -48,7 +48,6 @@ class ConfigFactory:
         config = {'biomes': []}
 
         for biome in biomes:
-            print(biome.to_dict())
             config['biomes'].append(biome.to_dict())
 
         try:
@@ -58,6 +57,15 @@ class ConfigFactory:
             print(e)
 
         return config
+    
+    @staticmethod
+    def ser_config(filename: str, config: dict):
+        import json
+        try:
+            with open(filename, 'w+', encoding='utf-8') as export:
+                json.dump(config, export, ensure_ascii=False, indent=3)
+        except Exception as e:
+            print(e)
     
     @staticmethod
     def read_config(path):
@@ -201,6 +209,6 @@ def sample_config():
 
     biomes = [BiomeFactory.create_biome(name, data['color'], data['palettes']) for name, data in biome_definitions.items()]
 
-    config = ConfigFactory.serialize_config('config.json', biomes)
+    config = ConfigFactory.serialize_config('config.json', biome_definitions)
 
     return config

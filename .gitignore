@@ -167,5 +167,4 @@ cython_debug/
 *house.xml
 *spawn.xml
 test.py
-*.png
 *.zip
