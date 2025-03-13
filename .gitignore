@@ -163,8 +163,6 @@ cython_debug/
 
 # Ignore otbm files
 
-*.otbm
 *house.xml
 *spawn.xml
-test.py
 *.zip

@@ -410,6 +410,12 @@ class NodeFactory:
             
 class MapFactory:
     @staticmethod
+    def empty_map(width, height):
+        map = MapHeader(width=width, height=height)
+        MapData(parent=map)
+        return map
+    
+    @staticmethod
     def from_img(img_path):
         from map_elements import BiomeFactory
         from PIL import Image
@@ -427,11 +433,6 @@ class MapFactory:
         data = MapData(map)
 
         image_array = np.array(image)
-        
-    @staticmethod
-    def _compute_TileArea_init():
-
-        pass
 
 def parse_buffer(buffer: bytes) -> Node:
     print('Reading OTBM buffer...')
