@@ -1,115 +1,75 @@
 from packages import pyotbm
-
-test_map = pyotbm.map_header(width=2048, height=2048)
-map_data = pyotbm.map_data(parent=test_map)
-test_map.children.append(map_data)
-
-tile_area = pyotbm.tile_area(x=500, y=500, z=7, parent=map_data)
-map_data.children.append(tile_area)
-
-tileid = 101
-index = 0
-
-for i in range(10):
-    for j in range(10):
-        
-        tile_area.children.append(pyotbm.tile(parent=tile_area, x=i, y=j, tileid=103))
-
-b_test_map = test_map.to_buffer()
+from packages import colors
 
 import numpy as np
 from PIL import Image
 
-path = 'D:/Downloads/Erar 2025-02-05-00-38.png'
+path = 'A1.png'
 
-image = Image.open(path).convert('RGBA')
+image = Image.open(path).convert('RGB')
+
+pixels = image.load()
 
 image_array = np.array(image)
 
-import matplotlib.pyplot as plt
-plt.imshow(image_array)
-plt.show()
+from packages.map_elements import BiomeFactory
 
-plt.imshow(image_array[:3245, 10080:])
-plt.show()
+biomes = BiomeFactory.from_config('cfg/config.json')
 
-int(6489/2)+1
+biomes_color = {tuple(value.base_color) : value for key, value in biomes.items()}
 
-int(6489/4)+1
+matches = {}
 
-stepx = int(image_array.shape[0]/6)
-stepy = int(image_array.shape[1]/8)
+for ij in np.ndindex(image_array.shape[:2]):
+    pixel = tuple(image_array[ij])
+    if pixel in biomes_color:
+        matches[ij] = biomes_color[pixel].get_tile()
 
-botx = 0
-topx = stepx
+test_map = pyotbm.MapHeader(width=image.width, height=image.height)
+data = pyotbm.MapData(test_map)
 
-boty = 0
-topy = stepy
+def TileAreaFactory(matches: dict, data: pyotbm.MapData):
+    curr_x = 0
+    curr_y = 0
+    curr_z = 7
 
-while topy <= image_array.shape[1]:
-    
-    botx = 0
-    topx = stepx
+    limit_x = 255 if 255 <= image.width-1 else image.width-1
+    limit_y = 255 if 255 <= image.height-1 else image.height-1
 
-    while topx <= image_array.shape[0]:
+    active_TileArea = None
 
-        botx += stepx
-        topx += stepx    
+    for xy, tile in matches.items():
         
-    boty += stepy
-    topy += stepy
+                    
+        if limit_x >= xy[1] and limit_y < xy[0]:
+            curr_y = curr_y + 255 if curr_y + 255 <= image.height-1 else curr_y + 0
+            limit_y = limit_y + 255 if limit_y + 255 <= image.height-1 else image.height-1
 
+            active_TileArea = pyotbm.TileArea(parent=data, x=curr_x, y=curr_y, z=curr_z)
 
-unique_bytes = []
+        elif limit_y >= xy[0] and limit_x < xy[1]:
+            curr_x = curr_x + 255 if curr_x + 255 <= image.width-1 else image.width-1
+            limit_x = limit_x + 255 if limit_x + 255 <= image.width-1 else image.width-1
 
-for x in range(0, image_array.shape[0], stepx):
-    for y in range(0, image_array.shape[1], stepy):
-        #print(f'{x}:{x+stepx}, {y}:{y+stepy}')
-        #plt.imshow(image_array[x:x+stepx, y:y+stepy])
-        #plt.show()
+            active_TileArea = pyotbm.TileArea(parent=data, x=curr_x, y=curr_y, z=curr_z)
 
-        unique_bytes.append(np.unique(image_array[x:x+stepx, y:y+stepy].reshape(-1, image_array[2]),axis=0))
+        elif limit_x < xy[1] and limit_y < xy[0]:
 
+            curr_y = curr_y + 255 if curr_y + 255 <= image.height-1 else curr_y + 0
+            limit_y = limit_y + 255 if limit_y + 255 <= image.height-1 else image.height-1
 
-np.unique(image_array.reshape(-1, image_array.shape[2]), axis=0)
+            curr_x = curr_x + 255 if curr_x + 255 <= image.width-1 else image.width-1
+            limit_x = limit_x + 255 if limit_x + 255 <= image.width-1 else image.width-1
 
+            active_TileArea = pyotbm.TileArea(parent=data, x=curr_x, y=curr_y, z=curr_z)
 
+        rel_x = xy[1]-curr_x
+        rel_y = xy[0]-curr_y
+        pyotbm.Tile(active_TileArea, x=rel_x, y=rel_y, tileid=tile)
 
-unique_values = np.unique(image_array[:3245, 10080:].reshape(-1, image_array[2]),axis=0)
+    return data
 
-unique_values = np.unique(image_array.reshape(-1, image_array.shape[2]), axis=0)
+test = TileAreaFactory(matches=matches, data=data)
+b_tm = test_map.to_buffer()
 
-import json
-
-json_path = 'D:/Downloads/Erar Minimal 2025-02-05-00-39.json'
-
-with open(json_path, 'r', encoding='utf-8') as file:
-    data = json.load(file)
-
-data.keys()
-
-data['pack'].keys()
-
-biomes = {}
-
-for i in range(len(data['biomesData']['name'])):
-
-    name = data['biomesData']['name'][i]
-    color = data['biomesData']['color'][i]
-    biomes[name] = color
-
-
-def hex_to_rgba(hex_color):
-    hex_color = hex_color.lstrip("#")
-    rgba = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
-    return rgba
-
-b_biomes = {}
-
-for biome, color in biomes.items():
-    b_biomes[biome] = hex_to_rgba(color)
-
-b_biomes
-
-
-image_array
+pyotbm.ioOTBM.serialize_otbm(b_tm, 'notia.otbm')
