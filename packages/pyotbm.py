@@ -275,9 +275,9 @@ class Tile(Node):
         if buffer:
             self.from_buffer(buffer=buffer)
         else:
-            self.x = kwargs.get('x')
-            self.y = kwargs.get('y')
-            self.tileid = kwargs.get('tileid')
+            self.x = int(kwargs.get('x'))
+            self.y = int(kwargs.get('y'))
+            self.tileid = int(kwargs.get('tileid'))
     
     def from_buffer(self, buffer: bytes) -> None:
         io = ioOTBM
@@ -411,7 +411,7 @@ class NodeFactory:
 class MapFactory:
     @staticmethod
     def from_img(img_path):
-        from config_manager import BiomeFactory
+        from map_elements import BiomeFactory
         from PIL import Image
         import numpy as np
 

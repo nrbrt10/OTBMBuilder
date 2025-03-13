@@ -43,33 +43,19 @@ class Biome(MapItem):
 
 class ConfigFactory:
     @staticmethod
-    def serialize_config(filename: str, biomes: list[Biome]):
-        import json
-        config = {'biomes': []}
-
-        for biome in biomes:
-            config['biomes'].append(biome.to_dict())
-
-        try:
-            with open(filename, 'w+', encoding='utf-8') as export:
-                json.dump(config, export, ensure_ascii=False, indent=3)
-        except Exception as e:
-            print(e)
-
-        return config
-    
-    @staticmethod
-    def ser_config(filename: str, config: dict):
+    def serialize_config(config: dict):
         import json
         try:
-            with open(filename, 'w+', encoding='utf-8') as export:
+            with open('cfg/config.json', 'w', encoding='utf-8') as export:
                 json.dump(config, export, ensure_ascii=False, indent=3)
         except Exception as e:
             print(e)
     
     @staticmethod
-    def read_config(path):
+    def read_config():
         import json
+
+        path = 'cfg/config.json'
 
         try:
             with open(path, 'r', encoding='utf-8') as file:
@@ -86,7 +72,7 @@ class ConfigFactory:
     
 class BiomeFactory:
     @staticmethod
-    def create_biome(name: str, color: tuple[int], palettes: dict[str] | list[str]):
+    def init_biome(name: str, color: tuple[int], palettes: dict[str] | list[str]):
         biome = Biome(name, color)
         if isinstance(palettes, dict):
             for palette_name, palette_data in palettes.items():
@@ -100,9 +86,17 @@ class BiomeFactory:
     @staticmethod
     def from_config(path: str):
         
-        data = ConfigFactory.read_config(path=path)
+        data = ConfigFactory.read_config()
 
-        return {biome['name'] : BiomeFactory.create_biome(biome['name'], biome['base_color'], biome['terrain_palettes']) for biome in data['biomes']}
+        return {biome['name'] : BiomeFactory.init_biome(biome['name'], biome['base_color'], biome['terrain_palettes']) for biome in data['biomes']}
+    
+    @staticmethod
+    def to_config(biomes: list[Biome]):
+        biomes_config = {'biomes' : []}
+        for biome in biomes:
+            biomes_config['biomes'].append(biome.to_dict())
+
+        ConfigFactory.serialize_config('biome_config.json', biomes_config)
 
 def sample_config():
 
@@ -207,8 +201,17 @@ def sample_config():
         }
     }
 
-    biomes = [BiomeFactory.create_biome(name, data['color'], data['palettes']) for name, data in biome_definitions.items()]
+    biomes = [BiomeFactory.init_biome(name, data['color'], data['palettes']) for name, data in biome_definitions.items()]
 
-    config = ConfigFactory.serialize_config('config.json', biome_definitions)
+    config = BiomeFactory.to_config(biomes)
 
     return config
+
+def image_config():
+    image_config = {
+        'image_properties' : {
+            'name' : 'A1.png'
+            }
+    }
+
+    ConfigFactory.serialize_config()
