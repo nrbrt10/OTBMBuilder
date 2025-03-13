@@ -96,7 +96,7 @@ class BiomeFactory:
         for biome in biomes:
             biomes_config['biomes'].append(biome.to_dict())
 
-        ConfigFactory.serialize_config('biome_config.json', biomes_config)
+        ConfigFactory.serialize_config(biomes_config)
 
 def sample_config():
 
@@ -207,6 +207,8 @@ def sample_config():
 
     return config
 
+sample_config()
+
 def image_config():
     image_config = {
         'image_properties' : {
@@ -214,4 +216,4 @@ def image_config():
             }
     }
 
-    ConfigFactory.serialize_config()
+    ConfigFactory.serialize_config(image_config)
