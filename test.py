@@ -1,14 +1,18 @@
-from packages import pyotbm
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
-from packages.map_elements import BiomeFactory
+#import matplotlib.pyplot as plt
+
+try:
+    from packages import pyotbm
+    from packages.map_elements import BiomeFactory
+except Exception as e:
+    print(e)
 
 path = 'Notia 2025-03-13-00-39.png'
 image = Image.open(path).convert('RGB')
 image_array = np.array(image)
-plt.imshow(image_array)
-plt.show()
+#plt.imshow(image_array)
+#plt.show()
 
 
 
@@ -30,6 +34,7 @@ def TileAreaFactory(matches: dict, data: pyotbm.MapData, img_shape: tuple):
     limit_y = 255 if 255 <= img_shape[1] else img_shape[1]
 
     active_TileArea = None
+
 
     def slide_TileArea(active_TileArea, curr_x, curr_y, curr_z, limit_x, limit_y, x, y):
         
@@ -83,23 +88,38 @@ t[::-1][0]
 
 matches[(220, 470)]
 
-def test():
-    i = 2
+def TileAreaBuilder():
+    width = 500
+    height = 300
 
-    if not i==1:
-        pass
-    elif i == 1:
-        print('lol')
+    x_loc = 0
+    y_loc = 0
 
-    return 1
+    x_limit = 255
+    y_limit = 255
+    id = 0
 
-t = test()
+    tile_areas = {}
 
-image.width
-image.height
+    while x_limit <= width and y_limit <= height:
+        tile_areas[f'tile_area_{id}'] = [(x_loc, x_limit), (y_loc, y_limit)]
+        print(tile_areas)
 
+        if x_limit == width and y_limit == height:
+            return tile_areas
+        elif x_limit < width:
+            x_loc = x_loc + 256 if x_loc + 256 <= width else width
+            x_limit = x_limit + 255 if x_loc + 255 <= width else width
+        elif x_limit == width:
+            x_loc = 0
+            x_limit = 255
 
-import json
+            y_loc = y_loc + 256 if y_loc + 256 <= height else height
+            y_limit = y_limit + 256 if y_limit + 256 <= height else height
 
-with open('file.txt', 'w') as file:
-    file.write(str(matches))
+        id += 1
+
+    return tile_areas
+
+tiles = TileAreaBuilder()
+
