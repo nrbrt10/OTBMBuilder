@@ -1,3 +1,5 @@
+from packages import config_handler as cfg
+
 class MapItem:
     def to_dict(self):          
         return {
@@ -27,7 +29,7 @@ class Biome(MapItem):
         return
     
     def get_tile(self):
-        import random
+        from random import choices
 
         all_tiles = []
         all_weights = []
@@ -39,36 +41,7 @@ class Biome(MapItem):
             all_tiles.extend(tiles)
             all_weights.extend(weights)
 
-        return random.choices(all_tiles, weights=all_weights, k=1)[0]
-
-class ConfigFactory:
-    @staticmethod
-    def serialize_config(config: dict):
-        import json
-        try:
-            with open('cfg/config.json', 'w', encoding='utf-8') as export:
-                json.dump(config, export, ensure_ascii=False, indent=3)
-        except Exception as e:
-            print(e)
-    
-    @staticmethod
-    def read_config():
-        import json
-
-        path = 'cfg/config.json'
-
-        try:
-            with open(path, 'r', encoding='utf-8') as file:
-                data = json.load(file)
-            return data
-        
-        except FileNotFoundError:
-            print(f'Error: Config file not found at {path}.')
-            return None
-
-        except json.JSONDecodeError:
-            print(f'Error: Invalid JSON format in {path}.')
-            return None
+        return choices(all_tiles, weights=all_weights, k=1)[0]
     
 class BiomeFactory:
     @staticmethod
@@ -84,9 +57,9 @@ class BiomeFactory:
         return biome
     
     @staticmethod
-    def from_config(path: str):
+    def from_config():
         
-        data = ConfigFactory.read_config()
+        data = cfg.ConfigFactory.read_config()
 
         return {biome['name'] : BiomeFactory.init_biome(biome['name'], biome['base_color'], biome['terrain_palettes']) for biome in data['biomes']}
     
@@ -96,7 +69,7 @@ class BiomeFactory:
         for biome in biomes:
             biomes_config['biomes'].append(biome.to_dict())
 
-        ConfigFactory.serialize_config('biome_config.json', biomes_config)
+        cfg.ConfigFactory.serialize_config(biomes_config)
 
 def sample_config():
 
@@ -207,6 +180,8 @@ def sample_config():
 
     return config
 
+sample_config()
+
 def image_config():
     image_config = {
         'image_properties' : {
@@ -214,4 +189,4 @@ def image_config():
             }
     }
 
-    ConfigFactory.serialize_config()
+    cfg.ConfigFactory.serialize_config(image_config)

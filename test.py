@@ -1,75 +1,63 @@
+#import matplotlib.pyplot as plt
 from packages import pyotbm
-from packages import colors
-
-import numpy as np
-from PIL import Image
-
-path = 'A1.png'
-
-image = Image.open(path).convert('RGB')
-
-pixels = image.load()
-
-image_array = np.array(image)
-
 from packages.map_elements import BiomeFactory
+from packages.image_handler import ImageHandler as ih
 
-biomes = BiomeFactory.from_config('cfg/config.json')
+#plt.imshow(image_array)
+#plt.show()
 
-biomes_color = {tuple(value.base_color) : value for key, value in biomes.items()}
+def TileAreaFactory(map_data: pyotbm.MapData, img_width: int, img_height: int):
+    x_loc = 0
+    y_loc = 0
+    z_loc = 7
 
-matches = {}
+    x_limit = 255 if 255 <= img_width else img_width
+    y_limit = 255 if 255 <= img_height else img_height
 
-for ij in np.ndindex(image_array.shape[:2]):
-    pixel = tuple(image_array[ij])
-    if pixel in biomes_color:
-        matches[ij] = biomes_color[pixel].get_tile()
+    tile_areas = {}
 
-test_map = pyotbm.MapHeader(width=image.width, height=image.height)
-data = pyotbm.MapData(test_map)
+    while True:
+        tile_areas[(x_limit, y_limit)] = pyotbm.TileArea(parent=map_data, x=x_loc, y=y_loc, z=z_loc)
 
-def TileAreaFactory(matches: dict, data: pyotbm.MapData):
-    curr_x = 0
-    curr_y = 0
-    curr_z = 7
-
-    limit_x = 255 if 255 <= image.width-1 else image.width-1
-    limit_y = 255 if 255 <= image.height-1 else image.height-1
-
-    active_TileArea = None
-
-    for xy, tile in matches.items():
+        if x_limit == img_width and y_limit == img_height:
+            return tile_areas
         
-                    
-        if limit_x >= xy[1] and limit_y < xy[0]:
-            curr_y = curr_y + 255 if curr_y + 255 <= image.height-1 else curr_y + 0
-            limit_y = limit_y + 255 if limit_y + 255 <= image.height-1 else image.height-1
+        elif x_limit < img_width:
+            x_loc = x_loc + 255 if x_loc + 255 <= img_width else img_width
+            x_limit = x_limit + 255 if x_loc + 255 <= img_width else img_width
+        
+        elif x_limit == img_width:
+            x_loc = 0
+            x_limit = 255
 
-            active_TileArea = pyotbm.TileArea(parent=data, x=curr_x, y=curr_y, z=curr_z)
+            y_loc = y_loc + 255 if y_loc + 255 <= img_height else img_height
+            y_limit = y_limit + 255 if y_limit + 255 <= img_height else img_height
 
-        elif limit_y >= xy[0] and limit_x < xy[1]:
-            curr_x = curr_x + 255 if curr_x + 255 <= image.width-1 else image.width-1
-            limit_x = limit_x + 255 if limit_x + 255 <= image.width-1 else image.width-1
+def AllocateTiles(tile_areas: dict, matches: dict):
+    
+    for xy, tile in matches.items():
 
-            active_TileArea = pyotbm.TileArea(parent=data, x=curr_x, y=curr_y, z=curr_z)
+        x = xy[1]
+        y = xy[0]
 
-        elif limit_x < xy[1] and limit_y < xy[0]:
+        for limits, value in tile_areas.items():
+            if x <= limits[0] and x >= value.x and y <= limits[1] and y >= value.y:
+                relative_x = x - value.x
+                relative_y = y - value.y
+                pyotbm.Tile(parent=value, x=relative_x, y=relative_y, tileid=tile)
 
-            curr_y = curr_y + 255 if curr_y + 255 <= image.height-1 else curr_y + 0
-            limit_y = limit_y + 255 if limit_y + 255 <= image.height-1 else image.height-1
+    return
 
-            curr_x = curr_x + 255 if curr_x + 255 <= image.width-1 else image.width-1
-            limit_x = limit_x + 255 if limit_x + 255 <= image.width-1 else image.width-1
+biomes = BiomeFactory.from_config()
+biomes_color = {tuple(value.base_color) : value for key, value in biomes.items()}
+image = ih.load_image('Loulives 2025-03-13-23-55.png')
+matches = ih.match_pixels(image=image, color_config=biomes_color)
 
-            active_TileArea = pyotbm.TileArea(parent=data, x=curr_x, y=curr_y, z=curr_z)
+map = pyotbm.MapFactory.empty_map(width=image.width, height=image.height)
+map_data = TileAreaFactory(map_data=map.children[0], img_width=image.width-1, img_height=image.height-1)
 
-        rel_x = xy[1]-curr_x
-        rel_y = xy[0]-curr_y
-        pyotbm.Tile(active_TileArea, x=rel_x, y=rel_y, tileid=tile)
+AllocateTiles(tile_areas=map_data, matches=matches)
 
-    return data
+map_buffer = map.to_buffer()
 
-test = TileAreaFactory(matches=matches, data=data)
-b_tm = test_map.to_buffer()
-
-pyotbm.ioOTBM.serialize_otbm(b_tm, 'notia.otbm')
+pyotbm.ioOTBM.serialize_otbm(map_buffer, 'notia.otbm')
