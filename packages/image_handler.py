@@ -1,8 +1,10 @@
-from packages.map_elements import Biome
+from PIL import Image
+from map_elements import Biome
 
 class ImageHandler:
     def load_image(path):
         from PIL import Image
+        
         try:
             return Image.open(path).convert('RGB')
         except FileNotFoundError:
@@ -10,14 +12,18 @@ class ImageHandler:
         except Exception as e:
             print(e)
 
-    def find_matches(biome_colors: dict[Biome]):
-        ImageHandler
-
-        from numpy import ndindex
-        matches = {}
-        for ij in ndindex(image_array.shape[:2]):
-            pixel = tuple(image_array[ij])
-            if pixel in biomes_color:
-                matches[ij] = biomes_color[pixel].get_tile()
-
+    def match_pixels(image: Image, color_config: dict[tuple, Biome]):
+        from numpy import ndindex, array
         
+        im_array = array(image)
+
+        matches = {}
+
+        for ij in ndindex(im_array.shape[:2]):
+            pixel = tuple(im_array[ij])
+            if pixel in color_config:
+                matches[ij] = color_config[pixel].get_tile()
+
+        return matches
+
+            

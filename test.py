@@ -1,32 +1,17 @@
-import numpy as np
-from PIL import Image
 #import matplotlib.pyplot as plt
 
 try:
     from packages import pyotbm
     from packages.map_elements import BiomeFactory
+    from packages.image_handler import ImageHandler as ih
 except Exception as e:
     print(e)
 
-path = 'Notia 2025-03-13-00-39.png'
-image = Image.open(path).convert('RGB')
-image_array = np.array(image)
 #plt.imshow(image_array)
 #plt.show()
 
 biomes = BiomeFactory.from_config('cfg/config.json')
 biomes_color = {tuple(value.base_color) : value for key, value in biomes.items()}
-
-
-def match_pixels(image_array: np.ndarray, color_config: dict):
-    matches = {}
-
-    for ij in np.ndindex(image_array.shape[:2]):
-        pixel = tuple(image_array[ij])
-        if pixel in color_config:
-            matches[ij] = color_config[pixel].get_tile()
-
-    return matches
 
 def TileAreaFactory(map_data: pyotbm.MapData, img_width: int, img_height: int):
     x_loc = 0
@@ -70,7 +55,9 @@ def AllocateTiles(tile_areas: dict, matches: dict):
 
     return
 
-matches = match_pixels(image_array=image_array, color_config=biomes_color)
+image = ih.load_image('Notia 2025-03-13-00-39.png')
+matches = ih.match_pixels(image=image, color_config=biomes_color)
+
 map = pyotbm.MapFactory.empty_map(width=image.width, height=image.height)
 map_data = TileAreaFactory(map_data=map.children[0], img_width=image.width-1, img_height=image.height-1)
 
@@ -118,4 +105,3 @@ def TileAreaBuilder(map_data: pyotbm.MapData):
     return tile_areas
 
 tiles = TileAreaBuilder()
-
