@@ -1,5 +1,5 @@
 from PIL import Image
-from map_elements import Biome
+from packages.map_elements import Biome
 
 class ImageHandler:
     def load_image(path):

@@ -57,7 +57,7 @@ class BiomeFactory:
         return biome
     
     @staticmethod
-    def from_config(path: str):
+    def from_config():
         
         data = cfg.ConfigFactory.read_config()
 
