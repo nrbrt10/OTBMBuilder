@@ -61,3 +61,51 @@ AllocateTiles(tile_areas=map_data, matches=matches)
 map_buffer = map.to_buffer()
 
 pyotbm.ioOTBM.serialize_otbm(map_buffer, 'notia.otbm')
+
+
+d = {
+    'a' : {'a1': 1},
+    'b' : 2,
+    'c' : 3,
+    'd' : 4
+}
+
+sd = {
+    'sd' : 'a',
+    'as' : 'f'
+}
+
+{key : value for key, value in d.items() if key in sd.values()}
+
+n = {}
+
+{{sub_k : sub_v for sub_k, sub_v in value.items()} for key, value in d.items() if key in sd.values()}
+    
+X = [[val for val in color] for color in biomes_color.keys()]
+y = [biome.name for biome in biomes_color.values()]
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics.pairwise import cosine_distances
+import numpy as np
+neigh = KNeighborsClassifier(n_neighbors=1)
+neigh.fit(X, y) 
+
+
+
+[[val/255.0 for val in color] for color in biomes_color.keys()]
+
+
+
+
+x = [[125, 153, 196]]
+neigh.predict(x)
+
+dist = []
+
+for x in X:
+    dist.append(cosine_distances(X=[x], Y=y))
+
+npdist = np.array(dist)
+
+npdist.min()
+
+

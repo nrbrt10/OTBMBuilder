@@ -328,7 +328,7 @@ class Item(Node):
 
         return
 
-    def to_buffer(self):
+    def to_buffer(self) -> bytes:
         from struct import pack
         io = ioOTBM
 
@@ -349,11 +349,11 @@ class Item(Node):
         return buffer
 
 class Towns(Node):
-    def __init__(self, parent):
+    def __init__(self, parent) -> None:
         super().__init__(parent=parent)
         self.type = 12
 
-    def to_buffer(self):
+    def to_buffer(self) -> bytes:
         from struct import pack
         b_type = pack('<b', self.type)
 
@@ -362,11 +362,11 @@ class Towns(Node):
         return buffer
 
 class Waypoints(Node):
-    def __init__(self, parent):
+    def __init__(self, parent) -> None:
         super().__init__(parent=parent)
         self.type = 15
 
-    def to_buffer(self):
+    def to_buffer(self) -> bytes:
         from struct import pack
         b_type = pack('<b', self.type)
 
@@ -410,13 +410,13 @@ class NodeFactory:
             
 class MapFactory:
     @staticmethod
-    def empty_map(width, height):
+    def empty_map(width, height) -> MapHeader:
         map = MapHeader(width=width, height=height)
         MapData(parent=map)
         return map
     
     @staticmethod
-    def from_img(img_path):
+    def from_img(img_path) -> MapHeader:
         from packages.image_handler import ImageHandler as ih
         from packages.map_elements import BiomeFactory
 
@@ -474,7 +474,7 @@ class MapFactory:
 
         return map
 
-def parse_buffer(buffer: bytes) -> Node:
+def parse_buffer(buffer: bytes) -> MapHeader:
     print('Reading OTBM buffer...')
     i = 0
     active_node = None

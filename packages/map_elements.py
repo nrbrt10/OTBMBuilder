@@ -1,25 +1,25 @@
 from packages import config_handler as cfg
 
 class MapItem:
-    def to_dict(self):          
+    def to_dict(self) -> dict:          
         return {
                 key : [data.to_dict() for data in value] if isinstance(value, list) else value for key, value in self.__dict__.items()
         }
 
 class TerrainPalette(MapItem):
-    def __init__(self, name: str, type: str, data: dict):
+    def __init__(self, name: str, type: str, data: dict) -> None:
         super().__init__()
         self.name = name
         self.type = type
         self.data = data
 
 class Biome(MapItem):
-    def __init__(self, name: str, color: list[int]):
+    def __init__(self, name: str, color: list[int]) -> None:
         self.name = name
         self.base_color = color
         self.terrain_palettes = []
 
-    def add_palette(self, palette):
+    def add_palette(self, palette) -> None:
 
         if isinstance(palette, TerrainPalette):
             self.terrain_palettes.append(palette)
@@ -28,7 +28,7 @@ class Biome(MapItem):
 
         return
     
-    def get_tile(self):
+    def get_tile(self) -> int:
         from random import choices
 
         all_tiles = []
@@ -45,7 +45,7 @@ class Biome(MapItem):
     
 class BiomeFactory:
     @staticmethod
-    def init_biome(name: str, color: tuple[int], palettes: dict[str] | list[str]):
+    def init_biome(name: str, color: tuple[int], palettes: dict[str] | list[str]) -> Biome:
         biome = Biome(name, color)
         if isinstance(palettes, dict):
             for palette_name, palette_data in palettes.items():
@@ -57,14 +57,14 @@ class BiomeFactory:
         return biome
     
     @staticmethod
-    def from_config():
+    def from_config() -> dict:
         
         data = cfg.ConfigFactory.read_config()
 
         return {biome['name'] : BiomeFactory.init_biome(biome['name'], biome['base_color'], biome['terrain_palettes']) for biome in data['biomes']}
     
     @staticmethod
-    def to_config(biomes: list[Biome]):
+    def to_config(biomes: list[Biome]) -> None:
         biomes_config = {'biomes' : []}
         for biome in biomes:
             biomes_config['biomes'].append(biome.to_dict())
@@ -171,6 +171,20 @@ def sample_config():
                     'forest_floor' : {'type' : 'tile', 'data' : {20776: 2000, 20777: 1000, 20778: 1200, 20779: 1200, 20780: 2500, 20781: 2000}}
 
             }
+        },
+        'LITTORAL_WATER': {
+            'color' : c.LITTORAL_WATER,
+            'palettes' : {
+                'water' : {'type': 'tile', 'data': {4608: 3, 4609: 1, 4610: 1, 4611: 1, 4612: 1, 4613: 1, 4614: 1, 4615: 1, 4616: 1, 4617: 1, 4618: 1, 4619: 1, 4664: 1, 4665: 1, 4666: 1}}
+            }
+        },
+        'DEEP_WATER' : {
+            'color' : c.DEEP_WATER,
+            'palettes' : {}
+        },
+        'DEEPER_WATER' : {
+            'color' : c.DEEPER_WATER,
+            'palettes' : {}
         }
     }
 
@@ -180,13 +194,13 @@ def sample_config():
 
     return config
 
-sample_config()
-
 def image_config():
     image_config = {
         'image_properties' : {
-            'name' : 'A1.png'
+            'name' : 'Loulives 2025-03-13-23-55.png'
             }
     }
 
-    cfg.ConfigFactory.serialize_config(image_config)
+    from packages.config_handler import ConfigFactory as cf
+
+    cf.add_to_config(image_config)
