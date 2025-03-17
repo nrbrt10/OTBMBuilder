@@ -1,10 +1,10 @@
 from PIL import Image
 
 class ImageHandler:
-    def load_image() -> Image:
+    def load_image(path: str=None) -> Image:
         from packages.config_handler import ConfigFactory as cf
 
-        path = cf.read_config(config='image_properties')['image_properties']['name']
+        path = cf.read_config(config='image_path')
 
         try:
             return Image.open(path).convert('RGB')

@@ -425,7 +425,7 @@ class MapFactory:
         biomes = BiomeFactory.from_config()
         biomes_colors = {tuple(value.base_color) : value for key, value in biomes.items()}
 
-        color_exclusions = cf.read_config(config_items='image_properties')['image_properties']['exclusions']
+        color_exclusions = cf.read_config(config_items='exclusions')
 
         print('Loading image data.')
         image = ih.load_image()

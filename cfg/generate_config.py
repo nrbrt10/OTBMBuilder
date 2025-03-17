@@ -135,9 +135,12 @@ def biomes_config():
 
 def image_config():
     image_config = {
-        'image_properties': {
-            'name': 'Loulives 2025-03-13-23-55.png'
-            }
+        'image_properties': 'Loulives 2025-03-13-23-55.png',
+        'color_exclusions': [
+         "DEEP_LITTORAL_WATER",
+         "DEEP_WATER",
+         "DEEPER_WATER"
+      ]
     }
 
     from packages.config_handler import ConfigFactory as cf
