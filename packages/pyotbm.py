@@ -416,17 +416,23 @@ class MapFactory:
         return map
     
     @staticmethod
-    def from_img(img_path) -> MapHeader:
+    def from_img() -> MapHeader:
         from packages.image_handler import ImageHandler as ih
         from packages.map_elements import BiomeFactory
+        from packages.config_handler import ConfigFactory as cf
 
+        print('Extracting biome data from config.')
         biomes = BiomeFactory.from_config()
-        biomes_color = {tuple(value.base_color) : value for key, value in biomes.items()}
+        biomes_colors = {tuple(value.base_color) : value for key, value in biomes.items()}
 
-        image = ih.load_image(img_path)
-        matches = ih.match_pixels(image=image, color_config=biomes_color)
+        color_exclusions = cf.read_config(config_items='image_properties')['image_properties']['exclusions']
 
-        def TileAreaFactory(map_data: MapData, img_width: int, img_height: int):
+        print('Loading image data.')
+        image = ih.load_image()
+        print('Matching pixels to biome data.')
+        matches = ih.match_pixels(image=image, color_config=biomes_colors, color_exclusions=color_exclusions)
+
+        def compute_TileAreas(map_data: MapData, img_width: int, img_height: int):
             x_loc = 0
             y_loc = 0
             z_loc = 7
@@ -453,7 +459,7 @@ class MapFactory:
                     y_loc = y_loc + 255 if y_loc + 255 <= img_height else img_height
                     y_limit = y_limit + 255 if y_limit + 255 <= img_height else img_height
 
-        def AllocateTiles(tile_areas: dict, matches: dict):
+        def allocate_Tiles(tile_areas: dict, matches: dict):
     
             for xy, tile in matches.items():
 
@@ -461,7 +467,7 @@ class MapFactory:
                 y = xy[0]
 
                 for limits, value in tile_areas.items():
-                    if x <= limits[0] and x >= value.x and y <= limits[1] and y >= value.y:
+                    if x <= limits[0] and x >= value.x and y <= limits[1] and y >= value.y and tile:
                         relative_x = x - value.x
                         relative_y = y - value.y
                         Tile(parent=value, x=relative_x, y=relative_y, tileid=tile)
@@ -469,8 +475,10 @@ class MapFactory:
             return
     
         map = MapFactory.empty_map(width=image.width, height=image.height)
-        tile_areas = TileAreaFactory(map_data=map.children[0], img_width=image.width-1, img_height=image.height-1)
-        AllocateTiles(tile_areas=tile_areas, matches=matches)
+        print('Computing TileAreas...')
+        tile_areas = compute_TileAreas(map_data=map.children[0], img_width=image.width-1, img_height=image.height-1)
+        print('Allocating tiles to TileAreas...')
+        allocate_Tiles(tile_areas=tile_areas, matches=matches)
 
         return map
 
