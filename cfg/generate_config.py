@@ -1,3 +1,5 @@
+from packages.config_handler import ConfigFactory as cf
+
 def biomes_config():
 
     from packages import colors as c
@@ -50,8 +52,8 @@ def biomes_config():
         'TROPICAL_SEASONAL_FOREST': {
             'color': c.TROPICAL_SEASONAL_FOREST,
             'palettes': {
-                    'jungle_grass': {'type': 'tile', 'data': {3263: 50}},
-                    'jungle_dirt': {'type': 'tile', 'data': {3264: 11, 3265: 1}}
+                    'grass': {'type': 'tile', 'data': {9043: 2500, 9044: 10, 9045: 25, 9046: 25, 9047: 25, 9048: 25, 9049: 25, 9050: 25, 9051: 15, 9052: 25, 9053: 25, 9054: 25, 9055: 20, 9056: 20, 9057: 20, 9058: 20}},
+                    'dirt': {'type': 'tile', 'data': {103: 60}}
             }
         },
         'TROPICAL_RAINFOREST': {
@@ -135,17 +137,55 @@ def biomes_config():
 
 def image_config():
     image_config = {
-        'image_properties': 'Loulives 2025-03-13-23-55.png',
-        'color_exclusions': [
+        'image_path': 'Thidyia 2025-03-17-10-21.png',
+        'biome_exclusions': [
          "DEEP_LITTORAL_WATER",
          "DEEP_WATER",
          "DEEPER_WATER"
       ]
     }
 
-    from packages.config_handler import ConfigFactory as cf
-
     cf.add_to_config(image_config)
+
+def heightmap_config():
+    heightmap_config = {
+        'heightmap_config': {
+            'hm_7': {
+                'floor': 7,
+                'color': [105, 189, 169]
+            },
+            'hm_6': {
+                'floor': 6,
+                'color': [143, 210, 164]                
+            },
+            'hm_5': {
+                'floor': 5,
+                'color': [182, 226, 161]
+            },
+            'hm_4': {
+                'floor': 4,
+                'color': [215, 239, 159]
+            },
+            'hm_3': {
+                'floor': 3,
+                'color': [251, 248, 176]
+            },
+            'hm_2': {
+                'floor': 2,
+                'color': [254, 235, 159]
+            }, 
+            'hm_1': {
+                'floor': 1,
+                'color': [254, 212, 131]
+            },
+            'hm_0': {
+                'floor': 0,
+                'color': [249, 148, 86]
+            }
+        }
+    }
+    cf.add_to_config(heightmap_config)
 
 biomes_config()
 image_config()
+heightmap_config()

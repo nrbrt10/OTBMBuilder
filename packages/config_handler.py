@@ -1,5 +1,9 @@
 import json
 
+class Config:
+    def __init__(self):
+        pass
+
 class ConfigFactory:
     @staticmethod
     def serialize_config(config: dict) -> None:
@@ -11,13 +15,13 @@ class ConfigFactory:
             print(e)
     
     @staticmethod
-    def read_config(**config_items) -> dict:            
+    def read_config() -> Config:            
 
         path = 'cfg/config.json'
 
         try:
             with open(path, 'r', encoding='utf-8') as file:
-                config = json.load(file)
+                data = json.load(file)
         
         except FileNotFoundError:
             print(f'Error: Config file not found at {path}.')
@@ -27,13 +31,14 @@ class ConfigFactory:
             print(f'Error: Invalid JSON format in {path}.')
             return None
         
-        if config_items:
-            return {key : value for key, value in config.items() if key in config_items.values()}
-        else:
-            return config
+        config = Config()
 
-        
-    def add_to_config(config: dict, supersede=False):
+        for key, value in data.items():
+            setattr(config, key, value)
+
+        return config
+                
+    def add_to_config(config: dict, supersede=False, name: str=None):
 
         data = ConfigFactory.read_config()
 
@@ -41,7 +46,7 @@ class ConfigFactory:
             if supersede and key in data:
                 print(f'Existing {key} config found. Replacing with new config.')
                 data[key] = value
-            elif supersede and key in data:
+            elif supersede is None and key in data:
                 pass
             else:
                 print(f'Adding {key} to config.')

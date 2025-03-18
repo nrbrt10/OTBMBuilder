@@ -1,4 +1,10 @@
+import numpy as np
+from PIL import Image
+
 from packages import headers as h
+from packages.image_handler import ImageHandler as ih
+from packages.map_elements import BiomeFactory as bf
+from packages.config_handler import ConfigFactory as cf
 
 class ioOTBM:
     @staticmethod
@@ -417,54 +423,51 @@ class MapFactory:
     
     @staticmethod
     def from_img() -> MapHeader:
-        from packages.image_handler import ImageHandler as ih
-        from packages.map_elements import BiomeFactory
-        from packages.config_handler import ConfigFactory as cf
 
-        print('Extracting biome data from config.')
-        biomes = BiomeFactory.from_config()
+
+        
+        biomes = bf.from_config()
         biomes_colors = {tuple(value.base_color) : value for key, value in biomes.items()}
 
-        color_exclusions = cf.read_config(config_items='exclusions')
+        biome_exclusions = cf.read_config(config_items='biome_exclusions')
 
         print('Loading image data.')
         image = ih.load_image()
         print('Matching pixels to biome data.')
-        matches = ih.match_pixels(image=image, color_config=biomes_colors, color_exclusions=color_exclusions)
+        matches = ih.match_pixels(image=image, color_config=biomes_colors, color_exclusions=biome_exclusions)
 
         def compute_TileAreas(map_data: MapData, img_width: int, img_height: int):
             x_loc = 0
             y_loc = 0
             z_loc = 7
 
-            x_limit = 255 if 255 <= img_width else img_width
-            y_limit = 255 if 255 <= img_height else img_height
+            x_limit = min(255, img_width)
+            y_limit = min(255, img_height)
 
             tile_areas = {}
 
             while True:
-                tile_areas[(x_limit, y_limit)] = TileArea(parent=map_data, x=x_loc, y=y_loc, z=z_loc)
+                tile_areas[(x_limit, y_limit, z_loc)] = TileArea(parent=map_data, x=x_loc, y=y_loc, z=z_loc)
 
                 if x_limit == img_width and y_limit == img_height:
                     return tile_areas
                 
                 elif x_limit < img_width:
-                    x_loc = x_loc + 255 if x_loc + 255 <= img_width else img_width
-                    x_limit = x_limit + 255 if x_loc + 255 <= img_width else img_width
+                    x_loc = min(x_loc + 255, img_width)
+                    x_limit = min(x_limit + 255, img_width)
                 
                 elif x_limit == img_width:
                     x_loc = 0
                     x_limit = 255
 
-                    y_loc = y_loc + 255 if y_loc + 255 <= img_height else img_height
-                    y_limit = y_limit + 255 if y_limit + 255 <= img_height else img_height
+                    y_loc = min(y_loc + 255, img_height)
+                    y_limit = min(y_limit + 255, img_height)
 
         def allocate_Tiles(tile_areas: dict, matches: dict):
     
-            for xy, tile in matches.items():
+            for xyz, tile in matches.items():
 
-                x = xy[1]
-                y = xy[0]
+                x, y, z = xyz
 
                 for limits, value in tile_areas.items():
                     if x <= limits[0] and x >= value.x and y <= limits[1] and y >= value.y and tile:
@@ -481,6 +484,115 @@ class MapFactory:
         allocate_Tiles(tile_areas=tile_areas, matches=matches)
 
         return map
+
+class MapProcessor:
+    def __init__(self) -> None:
+        pass
+
+    def load_data(self, config) -> None:
+        print('Extracting biome data from config.')
+        config = cf.read_config()
+        biome_img = ih.load_image(config.biome_path)
+        heightmap_img = ih.load_image(config.heightmap_path)
+
+        self.biome_img = ih.to_array(biome_img)
+        self.heightmap_img = ih.to_array(heightmap_img)
+
+        if self.biome_img.shape != self.heightmap_img.shape:
+            raise(f'{self.biome_img} & {self.heightmap_img} are not compatible.')
+        else:
+            self.h, self.w, _ = self.biome_img.shape
+
+        self.biome_config = {tuple(value.base_color): value for value in bf.from_config().values()}
+        self.heightmap_config = {tuple(value['color']): value['floor'] for value in config.heightmap_config.values()}
+        self.biome_exclusions = {tuple(value.base_color) for value in self.biome_config.values() if value.name in config.biome_exclusions}
+
+        return
+
+    def preprocess_data(self) -> None:
+        self.bio_pixels = ih.flatten_image(self.biome_img)
+        self.hm_pixels = ih.flatten_image(self.heightmap_img)
+        
+        return
+    
+    def build_masks(self) -> None:
+        bio_known_mask = np.array([tuple(pixel) in self.biome_config for pixel in self.bio_pixels])
+        bio_known_pixels = self.bio_pixels[bio_known_mask]
+        bio_unknown_pixels = self.bio_pixels[~bio_known_mask]
+        biome_classifier = ih.train_colorKNN(X=np.array(list(self.biome_config.keys())), y=np.array([config.base_color for config in self.biome_config.values()]))
+        bio_predicted_pixels = np.array(biome_classifier.predict(bio_unknown_pixels))
+        
+        hm_known_mask = np.array([tuple(pixel) in self.heightmap_config for pixel in self.hm_pixels])
+        hm_known_pixels = self.hm_pixels[hm_known_mask]
+        hm_unknown_pixels = self.hm_pixels[~hm_known_mask]    
+        hm_classifier = ih.train_colorKNN(X=np.array(list(self.heightmap_config.keys())), y=np.array(list(self.heightmap_config.keys())))
+        hm_predicted_pixels = np.array(hm_classifier.predict(hm_unknown_pixels))
+       
+        rebuilt_hm_pixels = np.zeros_like(self.hm_pixels)
+        rebuilt_hm_pixels[hm_known_mask] = hm_known_pixels
+        rebuilt_hm_pixels[~hm_known_mask] = hm_predicted_pixels
+
+        bio_known_indices = np.where(bio_known_mask)[0]
+        bio_unknown_indices = np.where(~bio_known_mask)[0]
+
+        elegible_bio_known_mask = np.array([tuple(pixel) not in self.biome_exclusions for pixel in bio_known_pixels])
+        elegible_bio_predicted_mask = np.array([tuple(pixel) not in self.biome_exclusions for pixel in bio_predicted_pixels])
+
+        self.elegible_bio_known_indices = bio_known_indices[elegible_bio_known_mask]
+        self.elegible_bio_predicted_indices = bio_unknown_indices[elegible_bio_predicted_mask]
+
+        self.elegible_bio_known_pixels = bio_known_pixels[elegible_bio_known_mask]
+        self.elegible_bio_predicted_pixels = bio_predicted_pixels[elegible_bio_predicted_mask]
+
+        self.elegible_hm_known_pixels = rebuilt_hm_pixels[elegible_bio_known_mask]
+        self.elegible_hm_predicted_pixels = rebuilt_hm_pixels[elegible_bio_predicted_mask]
+
+        return
+
+    def match_pixels(self) -> dict:
+        matches = {}
+
+        print('Finding pixel matches...')
+
+        matches = self.find_matches(matches, self.elegible_bio_known_pixels, self.elegible_hm_known_pixels, self.elegible_bio_known_indices, self.biome_config, self.heightmap_config, self.h, self.w)
+        matches = self.find_matches(matches, self.elegible_bio_predicted_pixels, self.elegible_hm_predicted_pixels, self.elegible_bio_predicted_indices, self.biome_config, self.heightmap_config, self.h, self.w)
+
+        return matches
+
+    def find_matches(matches_dict, colors, heightmap, b_indices, biome_config, hm_config, h, w) -> dict:
+    
+        for idx, biome_pixel, height_pixel in zip(b_indices, colors, heightmap):
+            biome = biome_config[tuple(biome_pixel)]
+            floor = hm_config[tuple(height_pixel)]
+            matches_dict[(tuple(np.unravel_index(idx, (h,w))), floor)] = biome.get_tile()
+
+        return matches_dict
+    
+    def extract_data(self):
+        print('Starting pipeline...')
+        self.load_data()
+        print('Preprocessing image data.')
+        self.preprocess_data()
+        print('Building masks.')
+        self.build_masks()
+        print('Finding pixel matches.')
+        return self.match_pixels()
+
+
+    
+
+
+
+
+    
+
+
+        
+
+
+
+    
+
 
 def parse_buffer(buffer: bytes) -> MapHeader:
     print('Reading OTBM buffer...')
