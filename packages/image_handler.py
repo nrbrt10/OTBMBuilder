@@ -6,8 +6,7 @@ class ImageHandler:
         from packages.config_handler import ConfigFactory as cf
 
         if not path:
-            path = cf.read_config(config_item='image_path')['image_path']
-
+            path = cf.read_config().biome_path
         try:
             return Image.open(path).convert('RGB')
         except FileNotFoundError:
