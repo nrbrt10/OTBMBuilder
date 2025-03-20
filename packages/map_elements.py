@@ -64,7 +64,7 @@ class BiomeFactory:
         
         data = cfg.ConfigFactory.read_config()
 
-        return {biome['name'] : BiomeFactory.init_biome(biome['name'], biome['base_color'], biome['terrain_palettes']) for biome in data['biomes']}
+        return {biome['name'] : BiomeFactory.init_biome(biome['name'], biome['base_color'], biome['terrain_palettes']) for biome in data.biomes}
     
     @staticmethod
     def to_config(biomes: list[Biome]) -> None:
