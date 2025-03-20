@@ -617,22 +617,6 @@ class MapProcessor:
         self.compute_TileAreas()
         return
 
-
-    
-
-
-
-
-    
-
-
-        
-
-
-
-    
-
-
 def parse_buffer(buffer: bytes) -> MapHeader:
     print('Reading OTBM buffer...')
     i = 0
