@@ -92,21 +92,21 @@ class Node:
         if parent:
             parent.children.append(self)
     
-    def to_dict(self, children=False) -> dict:
-        remove_attr = ['children', 'parent']
+    def to_dict(self, include_children=False) -> dict:
+        exclude = {'children', 'parent'}
 
-        dict_node = {key: value for key, value in self.__dict__.items() if key not in remove_attr}
+        data = {key: value for key, value in self.__dict__.items() if key not in exclude}
 
-        if children and self.children:
-                dict_node['children'] = [child.to_dict(children=True) for child in self.children]
+        if include_children and self.children:
+                data['children'] = [child.to_dict(children=True) for child in self.children]
         
-        return dict_node
+        return data
     
     def children_to_buffer(self) -> bytes:
         return b''.join(child.to_buffer() for child in self.children)
     
     def __repr__(self) -> str:
-        return f'\n{self.__class__.__name__}:\n\t{'\n\t'.join([f'{k}: {v}' for k, v in self.to_dict().items()])}\n'
+        return f'\n{self.__class__.__name__}:\n\t{'\n\t'.join([f'{key}: {value}' for key, value in self.to_dict().items()])}\n'
 
 class MapHeader(Node):
     def __init__(self, buffer: bytes=None, **kwargs) -> None:
@@ -232,9 +232,12 @@ class TileArea(Node):
         if buffer:
             self.from_buffer(buffer=buffer)
         else:
-            self.x = kwargs.get('x')
-            self.y = kwargs.get('y')
-            self.z = kwargs.get('z')
+            try:
+                self.x = kwargs.get('x')
+                self.y = kwargs.get('y')
+                self.z = kwargs.get('z')
+            except Exception as e:
+                print(e)
 
     def from_buffer(self, buffer: bytes) -> None:
         io = ioOTBM
@@ -437,6 +440,7 @@ class MapFactory:
 
     @staticmethod
     def allocate_Tiles(tile_areas: dict, matches: dict):
+        """
         for xyz, tile in matches.items():
         
             x, y, z = xyz
@@ -448,9 +452,12 @@ class MapFactory:
                     Tile(parent=value, x=relative_x, y=relative_y, tileid=tile)
 
         return
+        """
+        pass
     
     @staticmethod
     def compute_TileAreas(map_data: MapData, img_width: int, img_height: int):
+        """
         x_loc = 0
         y_loc = 0
         z_loc = 7
@@ -485,13 +492,15 @@ class MapFactory:
 
                 y_loc = 0
                 y_limit = 255
+        """
+        pass
 
     @staticmethod
     def create_TileAreas(map_data: MapData, TileArea_data: set[tuple]):
         return {tuple((x, y, z)): TileArea(parent=map_data, x=x, y=y, z=z) for x, y, z in TileArea_data}
 
     @staticmethod
-    def create_Tiles(areas_dict: dict[tuple, TileArea], matches: dict):
+    def create_Tiles(areas_dict: dict[tuple, TileArea], matches: dict[tuple, int]):
         for xyz, tile in matches.items():
             x, y, z = xyz
             ix = x // 255 * 255
@@ -502,64 +511,60 @@ class MapFactory:
 
 class MapProcessor:
     def __init__(self) -> None:
-        pass
-
-    def load_data(self) -> None:
         print('Extracting biome and heightmap data from config.')
         config = cf.read_config()
-        biome_img = ih.load_image(config.biome_path)
-        heightmap_img = ih.load_image(config.heightmap_path)
 
-        self.biome_img = ih.to_array(biome_img)
-        self.heightmap_img = ih.to_array(heightmap_img)
-
-        if self.biome_img.shape != self.heightmap_img.shape:
-            raise ValueError(f'Biome and height map images are not compatible: {self.biome_img} != {self.heightmap_img}')
+        if config.__getattribute__('biome_path'):
+            print('Biome data found.')
+            biome_img = ih.load_image(config.biome_path)
+            self.biome_img = ih.to_array(biome_img)
+            
+            
+            self.biome_config = {tuple(value.base_color): value for value in bf.from_config().values()}
+            print(f'    Persisting biome config: {len(self.biome_config)}')
+            self.biome_exclusions = {tuple(value.base_color) for value in self.biome_config.values() if value.name in config.biome_exclusions}
+            print(f'    Persisting biome exclusions: {len(self.biome_exclusions)}')
         else:
-            self.h, self.w, _ = self.biome_img.shape
+            print('Biome data not found. Exiting...')
+            raise FileNotFoundError 
+            
+        if config.__getattribute__('heightmap_path'):
+            print('Heightmap data found.')
+            heightmap_img = ih.load_image(config.heightmap_path)
+            self.heightmap_img = ih.to_array(heightmap_img)
 
-        self.biome_config = {tuple(value.base_color): value for value in bf.from_config().values()}
-        self.heightmap_config = {tuple(value['color']): value['floor'] for value in config.heightmap_config.values()}
-        self.biome_exclusions = {tuple(value.base_color) for value in self.biome_config.values() if value.name in config.biome_exclusions}
+            self.heightmap_config = {tuple(value['color']): value['floor'] for value in config.heightmap_config.values()}
+            print(f'    Persisting heightmap config: {len(self.heightmap_config)}')
 
-        return
+            if self.biome_img.shape != self.heightmap_img.shape:
+                raise ValueError(f'Biome and height map images are not compatible: {self.biome_img.shape} != {self.heightmap_img.shape}')
+            else:
+                self.h, self.w, _ = self.biome_img.shape
 
     def preprocess_data(self) -> None:
         self.bio_pixels = ih.flatten_image(self.biome_img)
-        self.hm_pixels = ih.flatten_image(self.heightmap_img)
+        
+        if hasattr(self, 'heightmap_img'):
+            self.hm_pixels = ih.flatten_image(self.heightmap_img)
         
         return
     
     def process_data(self) -> None:
+        print('Processing biome data.')
         bio_known_mask = np.array([tuple(pixel) in self.biome_config for pixel in self.bio_pixels])
-        hm_known_mask = np.array([tuple(pixel) in self.heightmap_config for pixel in self.hm_pixels])
-    
+
         bio_known_pixels = self.bio_pixels[bio_known_mask]
         bio_unknown_pixels = self.bio_pixels[~bio_known_mask]
-        hm_known_pixels = self.hm_pixels[hm_known_mask]
-        hm_unknown_pixels = self.hm_pixels[~hm_known_mask]
-
+        
         biome_classifier = ih.train_colorKNN(
             X=np.array(list(self.biome_config.keys())),
             y=np.array([config.base_color for config in self.biome_config.values()])
             )
         bio_predicted_pixels = np.array(biome_classifier.predict(bio_unknown_pixels))
         
-        hm_classifier = ih.train_colorKNN(
-            X=np.array(list(self.heightmap_config.keys())),
-            y=np.array(list(self.heightmap_config.keys()))
-            )
-        hm_predicted_pixels = np.array(hm_classifier.predict(hm_unknown_pixels))
-
         bio_known_indices = np.where(bio_known_mask)[0]
         bio_unknown_indices = np.where(~bio_known_mask)[0]
-        hm_known_indices = np.where(hm_known_mask)[0]
-        hm_unknown_indices = np.where(~hm_known_mask)[0]
-       
-        rebuilt_hm_pixels = np.zeros_like(self.hm_pixels)
-        rebuilt_hm_pixels[hm_known_indices] = hm_known_pixels
-        rebuilt_hm_pixels[hm_unknown_indices] = hm_predicted_pixels
-
+        
         elegible_bio_known_mask = np.array([tuple(pixel) not in self.biome_exclusions for pixel in bio_known_pixels])
         elegible_bio_predicted_mask = np.array([tuple(pixel) not in self.biome_exclusions for pixel in bio_predicted_pixels])
 
@@ -567,30 +572,55 @@ class MapProcessor:
         self.elegible_bio_predicted_indices = bio_unknown_indices[elegible_bio_predicted_mask]
 
         self.elegible_bio_known_pixels = bio_known_pixels[elegible_bio_known_mask]
-        self.elegible_bio_predicted_pixels = bio_predicted_pixels[elegible_bio_predicted_mask]
-
-        self.elegible_hm_known_pixels = rebuilt_hm_pixels[self.elegible_bio_known_indices]
-        self.elegible_hm_predicted_pixels = rebuilt_hm_pixels[self.elegible_bio_predicted_indices]
+        self.elegible_bio_predicted_pixels = bio_predicted_pixels[elegible_bio_predicted_mask]        
 
         coded_indices = np.concatenate((self.elegible_bio_known_indices, self.elegible_bio_predicted_indices), axis=0)
-        
         biome_pixels = np.concatenate((self.elegible_bio_known_pixels, self.elegible_bio_predicted_pixels), axis=0)
-        hm_pixels = np.concatenate((self.elegible_hm_known_pixels, self.elegible_hm_predicted_pixels), axis=0)
 
         self.decoded_indices_Y, self.decoded_indices_X = np.unravel_index(coded_indices, (self.h, self.w))
         self.tile_data = np.array([self.biome_config[tuple(pixel)].get_tile() for pixel in biome_pixels])
-        self.floor_data = np.array([self.heightmap_config[tuple(pixel)] for pixel in hm_pixels])
 
         print(f'    Persisting coordinates: x = {len(self.decoded_indices_X)} rows, y = {len(self.decoded_indices_Y)} rows.')
-        print(f'    Persisting tile data: {len(self.tile_data)} rows')
-        print(f'    Persisting floor data: {len(self.floor_data)} rows')
+        print(f'    Persisting tile data: {len(self.tile_data)} rows.')
+    
+        if hasattr(self, 'hm_pixels'):
+            print('Processing heightmap data.')
+            hm_known_mask = np.array([tuple(pixel) in self.heightmap_config for pixel in self.hm_pixels])
+            hm_known_pixels = self.hm_pixels[hm_known_mask]
+            hm_unknown_pixels = self.hm_pixels[~hm_known_mask]
+    
+            hm_classifier = ih.train_colorKNN(
+            X=np.array(list(self.heightmap_config.keys())),
+            y=np.array(list(self.heightmap_config.keys()))
+            )
+            hm_predicted_pixels = np.array(hm_classifier.predict(hm_unknown_pixels))
+
+            hm_known_indices = np.where(hm_known_mask)[0]
+            hm_unknown_indices = np.where(~hm_known_mask)[0]
+
+            rebuilt_hm_pixels = np.zeros_like(self.hm_pixels)
+            rebuilt_hm_pixels[hm_known_indices] = hm_known_pixels
+            rebuilt_hm_pixels[hm_unknown_indices] = hm_predicted_pixels
+
+            self.elegible_hm_known_pixels = rebuilt_hm_pixels[self.elegible_bio_known_indices]
+            self.elegible_hm_predicted_pixels = rebuilt_hm_pixels[self.elegible_bio_predicted_indices]
+
+            hm_pixels = np.concatenate((self.elegible_hm_known_pixels, self.elegible_hm_predicted_pixels), axis=0)
+
+            self.floor_data = np.array([self.heightmap_config[tuple(pixel)] for pixel in hm_pixels])
+            print(f'    Persisting floor data: {len(self.floor_data)} rows.')
 
         return
 
     def match_pixels(self) -> dict:
-        self.matches = {
-            tuple((int(x), int(y), int(z))): int(tileid) for x, y, z, tileid in zip(self.decoded_indices_X, self.decoded_indices_Y, self.floor_data, self.tile_data)
-        }
+        if hasattr(self, 'floor_data'):
+            self.matches = {
+                tuple((int(x), int(y), int(z))): int(tileid) for x, y, z, tileid in zip(self.decoded_indices_X, self.decoded_indices_Y, self.floor_data, self.tile_data)
+            }
+        else:
+            self.matches = {
+                tuple((int(x), int(y))): int(tileid) for x, y, tileid in zip(self.decoded_indices_X, self.decoded_indices_Y, self.tile_data)
+            }
 
         return
 
@@ -602,18 +632,16 @@ class MapProcessor:
         print(f'    Persisting {len(self.tile_areas)} TileAreas.')
 
         return 
-
     
     def process_map_data(self):
         print('Starting pipeline...')
-        self.load_data()
-        print('Preprocessing image data.')
+        print(' Preprocessing image data.')
         self.preprocess_data()
-        print('Processing image data.')
+        print(' Processing image arrays.')
         self.process_data()
-        print('Finding pixel matches.')
+        print(' Finding pixel matches.')
         self.match_pixels()
-        print('Computing TileArea origins.')
+        print(' Computing TileArea coordinates.')
         self.compute_TileAreas()
         return
 
