@@ -427,86 +427,32 @@ class MapFactory:
     @staticmethod
     def from_img(map_name: str) -> MapHeader:
         mp = MapProcessor()
-        mp.process_map_data()
+        mp.process_image_data()
 
         new_map = MapFactory.empty_map(width=mp.w, height=mp.h)
         tile_areas = MapFactory.create_TileAreas(new_map.children[0], mp.tile_areas)
         MapFactory.create_Tiles(tile_areas, mp.matches)
-
-        buffer = new_map.to_buffer()
-        ioOTBM.serialize_otbm(buffer=buffer, filename=map_name)
+        ioOTBM.serialize_otbm(buffer=new_map.to_buffer(), filename=map_name)
 
         return new_map
-
-    @staticmethod
-    def allocate_Tiles(tile_areas: dict, matches: dict):
-        """
-        for xyz, tile in matches.items():
-        
-            x, y, z = xyz
-        
-            for limits, value in tile_areas.items():
-                if x <= limits[0] and x >= value.x and y <= limits[1] and y >= value.y and z == limits[2] and tile:
-                    relative_x = x - value.x
-                    relative_y = y - value.y
-                    Tile(parent=value, x=relative_x, y=relative_y, tileid=tile)
-
-        return
-        """
-        pass
     
     @staticmethod
-    def compute_TileAreas(map_data: MapData, img_width: int, img_height: int):
-        """
-        x_loc = 0
-        y_loc = 0
-        z_loc = 7
-
-        x_limit = min(255, img_width)
-        y_limit = min(255, img_height)
-
-        tile_areas = {}
-
-        while True:
-            tile_areas[(x_limit, y_limit, z_loc)] = TileArea(parent=map_data, x=x_loc, y=y_loc, z=z_loc)
-
-            if x_limit == img_width and y_limit == img_height and z_loc == 0:
-                return tile_areas
-            
-            elif x_limit < img_width:
-                x_loc = min(x_loc + 255, img_width)
-                x_limit = min(x_limit + 255, img_width)
-            
-            elif x_limit == img_width:
-                x_loc = 0
-                x_limit = 255
-
-                y_loc = min(y_loc + 255, img_height)
-                y_limit = min(y_limit + 255, img_height)
-            
-            elif x_limit == img_width and y_limit == img_height:
-                z_loc -= 1
-
-                x_loc = 0
-                x_limit = 255
-
-                y_loc = 0
-                y_limit = 255
-        """
-        pass
+    def compute_TileAreas(indices_x: np.ndarray, indices_y: np.ndarray, floor_data: np. ndarray) -> set[tuple]:
+        xi = indices_x // 255 * 255
+        yi = indices_y // 255 * 255
+        return {(int(x), int(y), int(z)) for x, y, z in zip(xi, yi, floor_data)}
 
     @staticmethod
-    def create_TileAreas(map_data: MapData, TileArea_data: set[tuple]):
+    def create_TileAreas(map_data: MapData, TileArea_data: set[tuple]) -> dict[tuple, TileArea]:
         return {tuple((x, y, z)): TileArea(parent=map_data, x=x, y=y, z=z) for x, y, z in TileArea_data}
 
     @staticmethod
-    def create_Tiles(areas_dict: dict[tuple, TileArea], matches: dict[tuple, int]):
+    def create_Tiles(areas_dict: dict[tuple, TileArea], matches: dict[tuple, int]) -> None:
         for xyz, tile in matches.items():
             x, y, z = xyz
             ix = x // 255 * 255
             iy = y // 255 * 255
             Tile(parent=areas_dict[tuple((ix, iy, z))], x=x-ix, y=y-iy, tileid=tile)
-
         return
 
 class MapProcessor:
@@ -514,7 +460,7 @@ class MapProcessor:
         print('Extracting biome and heightmap data from config.')
         config = cf.read_config()
 
-        if config.__getattribute__('biome_path'):
+        if hasattr(config, 'biome_path'):
             print('Biome data found.')
             biome_img = ih.load_image(config.biome_path)
             self.biome_img = ih.to_array(biome_img)
@@ -528,7 +474,7 @@ class MapProcessor:
             print('Biome data not found. Exiting...')
             raise FileNotFoundError 
             
-        if config.__getattribute__('heightmap_path'):
+        if hasattr(config, 'heightmap_path'):
             print('Heightmap data found.')
             heightmap_img = ih.load_image(config.heightmap_path)
             self.heightmap_img = ih.to_array(heightmap_img)
@@ -624,25 +570,21 @@ class MapProcessor:
 
         return
 
-    def compute_TileAreas(self) -> set[tuple]:
-        x_loc = self.decoded_indices_X // 255 * 255
-        y_loc = self.decoded_indices_Y // 255 * 255
-        self.tile_areas = {(int(x), int(y), int(z)) for x, y, z in zip(x_loc, y_loc, self.floor_data)}
-
+    def _compute_TileAreas(self) -> None:
+        self.tile_areas = MapFactory.compute_TileAreas(indices_x=self.decoded_indices_X, indices_y=self.decoded_indices_Y, floor_data=self.floor_data)
         print(f'    Persisting {len(self.tile_areas)} TileAreas.')
-
         return 
     
-    def process_map_data(self):
-        print('Starting pipeline...')
+    def process_image_data(self):
+        print('Starting...')
         print(' Preprocessing image data.')
         self.preprocess_data()
         print(' Processing image arrays.')
         self.process_data()
         print(' Finding pixel matches.')
         self.match_pixels()
-        print(' Computing TileArea coordinates.')
-        self.compute_TileAreas()
+        print(' Computing TileArea origins.')
+        self._compute_TileAreas()
         return
 
 def parse_buffer(buffer: bytes) -> MapHeader:
